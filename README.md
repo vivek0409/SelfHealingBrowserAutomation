@@ -75,8 +75,9 @@ prepare ──► execute
 | Language | Python 3.10+ (tested on 3.13) |
 | Web / API | FastAPI + Uvicorn |
 | Browser automation | Playwright (Chromium) |
+| LLM chains | LangChain (`langchain-openai` + `langchain-core`) |
 | Agent orchestration | LangGraph |
-| LLM client | Direct OpenAI‑compatible HTTP (`core/llm.py` via `httpx`) |
+| Data models | Pydantic v2 |
 | Storage | SQLite (auto‑created `db.sqlite`) |
 | Visual diff | Pillow |
 | Frontend | Vanilla HTML/CSS/JS (no build step) |

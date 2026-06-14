@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Browser Automation Agent</title>
+    <!-- Premium Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Syntax highlighting — light & dark themes toggled via JS -->
+    <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css">
+    <link id="hljs-dark"  rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" disabled>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Background glowing orbs -->
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+
+    <!-- In-app toast notifications (replaces native browser alerts) -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <header class="header">
+        <div class="logo">
+            <i class="fa-solid fa-wand-magic-sparkles logo-icon"></i>
+            <div>
+                <h1>AutoFlow AI</h1>
+                <p>Self-Healing Browser Automation Agent</p>
+            </div>
+        </div>
+        
+        <div class="header-actions">
+            <button id="btn-dark-mode" class="btn btn-secondary btn-icon" title="Toggle dark mode" aria-label="Toggle dark mode">
+                <i id="dark-mode-icon" class="fa-solid fa-moon"></i>
+            </button>
+            <button id="btn-settings" class="btn btn-secondary">
+                <i class="fa-solid fa-key"></i> API Settings
+            </button>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="modal">
+            <div class="modal-content glass-card">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-gears"></i> API Configuration</h2>
+                    <span class="close-btn" id="close-settings">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p class="settings-hint">API keys are stored safely in your browser's local storage and are never persisted on our server.</p>
+                    
+                    <div class="form-group">
+                        <label for="setting-provider">AI Provider</label>
+                        <select id="setting-provider" class="form-control">
+                            <option value="openai">OpenAI (GPT-4o)</option>
+                            <option value="openrouter">OpenRouter (Llama 3 / Claude / etc.)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="setting-api-key">API Key</label>
+                        <div class="input-with-icon">
+                            <i class="fa-solid fa-lock input-icon"></i>
+                            <input type="password" id="setting-api-key" placeholder="sk-..." class="form-control">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" id="group-base-url">
+                        <label for="setting-base-url">Custom Base URL (Optional)</label>
+                        <input type="text" id="setting-base-url" placeholder="https://api.openai.com/v1" class="form-control">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="setting-model">Model (Optional)</label>
+                        <input type="text" id="setting-model" placeholder="e.g. gpt-4o, meta-llama/llama-3.1-70b-instruct" class="form-control">
+                    </div>
+
+                    <button id="save-settings" class="btn btn-primary btn-block">Save Configuration</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Left Panel: Flow Disocvery & Flow Config -->
+            <div class="dashboard-panel flex-column gap-lg">
+                <!-- launcher card -->
+                <div class="glass-card panel-card">
+                    <h2 class="section-title"><i class="fa-solid fa-search"></i> Flow Discovery launcher</h2>
+                    
+                    <div class="form-group">
+                        <label for="input-url">Starting Web URL</label>
+                        <input type="url" id="input-url" placeholder="https://example.com/login" value="https://example.com" class="form-control">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="input-goal">User Story / Goal Description</label>
+                        <textarea id="input-goal" rows="3" placeholder="Identify login form, input username & password and submit" class="form-control"></textarea>
+                    </div>
+                    
+                    <button id="btn-discover" class="btn btn-primary btn-block">
+                        <i class="fa-solid fa-magnifying-glass"></i> Discover Flow
+                    </button>
+                </div>
+
+                <!-- Discovered flows list -->
+                <div class="glass-card panel-card flex-grow flex-column">
+                    <h2 class="section-title"><i class="fa-solid fa-list-check"></i> Flows & Journeys</h2>
+                    <div id="flows-list" class="flows-list flex-grow">
+                        <div class="empty-state">
+                            <i class="fa-solid fa-folder-open"></i>
+                            <p>No flows discovered yet. Run discovery above.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle Panel: Active Flow Details / Script Viewer -->
+            <div class="dashboard-panel flex-column gap-lg">
+                <div class="glass-card panel-card flex-grow flex-column" id="flow-detail-card" style="display: none;">
+                    <div class="flow-detail-top">
+                        <div class="panel-header-row">
+                            <h2 class="section-title" id="detail-flow-name">Active Flow</h2>
+                            <span class="badge" id="detail-framework-badge">Playwright</span>
+                        </div>
+                        <div class="flow-meta">
+                            <p class="flow-url-line"><strong>Starting URL:</strong> <a id="detail-url" href="#" target="_blank"></a></p>
+                            <p class="text-secondary flow-created-line" id="detail-created"></p>
+                        </div>
+                        <div class="action-bar flow-actions">
+                            <button id="btn-run-flow" class="btn btn-primary">
+                                <i class="fa-solid fa-play"></i> Run Automation
+                            </button>
+                            <button id="btn-fix-run" class="btn btn-secondary" disabled title="Enabled after a run fails. Diagnoses the failure, patches the script, and re-runs.">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Fix Script &amp; Run
+                            </button>
+                            <label class="run-option" title="Unchecked runs a visible browser (matches running the script manually); many sites block headless.">
+                                <input type="checkbox" id="chk-headless"> Headless
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="tabs">
+                        <button class="tab-btn active" data-tab="tab-steps">Flow Steps</button>
+                        <button class="tab-btn" data-tab="tab-script" id="tab-btn-script">Generated Script</button>
+                    </div>
+
+                    <div class="tab-content flex-grow" id="tab-steps">
+                        <div id="steps-container" class="steps-container"></div>
+                    </div>
+
+                    <div class="tab-content flex-grow" id="tab-script" style="display: none;">
+                        <div class="code-block">
+                            <pre class="code-editor"><code id="code-editor-block" class="language-python"></code></pre>
+                        </div>
+                        <div class="action-bar">
+                            <button id="btn-regenerate-script" class="btn btn-primary">
+                                <i class="fa-solid fa-arrows-rotate"></i> Regenerate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- If nothing selected -->
+                <div class="glass-card panel-card flex-grow flex-center" id="flow-empty-state">
+                    <div class="empty-state">
+                        <i class="fa-solid fa-diagram-project"></i>
+                        <p>Select a flow from the left panel to configure, generate scripts, or trigger automation execution.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Runs History & Self-Healing Diagnostics -->
+            <div class="dashboard-panel flex-column gap-lg">
+                <!-- Runs list -->
+                <div class="glass-card panel-card flex-column" style="height: 350px;">
+                    <h2 class="section-title"><i class="fa-solid fa-clock-rotate-left"></i> Run Execution History</h2>
+                    <div id="runs-list" class="runs-list flex-grow">
+                        <div class="empty-state">
+                            <i class="fa-solid fa-history"></i>
+                            <p>No runs recorded yet.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Run details + diagnosis card -->
+                <div class="glass-card panel-card flex-grow flex-column" id="run-detail-card" style="display: none;">
+                    <div class="panel-header-row">
+                        <h2 class="section-title">Run Details</h2>
+                        <span class="status-badge" id="run-status-badge">PASS</span>
+                    </div>
+                    
+                    <div id="run-meta-info" class="run-meta-info"></div>
+
+                    <div class="run-artifacts-panel flex-grow flex-column">
+                        <h3>Run Artifacts</h3>
+                        <div class="artifact-links">
+                            <a id="link-log" href="#" target="_blank" class="artifact-link"><i class="fa-solid fa-file-invoice"></i> View Execution Logs</a>
+                            <a id="link-dom" href="#" target="_blank" class="artifact-link"><i class="fa-solid fa-code"></i> View DOM Snapshot</a>
+                        </div>
+                        
+                        <!-- Visual Regression section -->
+                        <div id="visual-regression-section" class="visual-regression-section" style="display: none;">
+                            <h4>Visual Regression Diffs</h4>
+                            <div class="baseline-action-row">
+                                <button id="btn-promote-baseline" class="btn btn-secondary btn-sm">
+                                    <i class="fa-solid fa-circle-check"></i> Set as Baseline
+                                </button>
+                                <button id="btn-view-diff" class="btn btn-primary btn-sm" style="display: none;">
+                                    <i class="fa-solid fa-eye"></i> View Visual Diff
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Self-Healing Diagnosis details -->
+                        <div id="diagnosis-panel" class="diagnosis-panel" style="display: none;">
+                            <div class="diagnosis-header">
+                                <h4><i class="fa-solid fa-heart-pulse"></i> Auto-Healing Diagnosis</h4>
+                                <span class="healing-badge">HEALED</span>
+                            </div>
+                            <div class="diagnosis-body">
+                                <p><strong>Error Type:</strong> <span id="diag-error-type" class="text-error"></span></p>
+                                <p><strong>Affected Step:</strong> Step <span id="diag-step"></span></p>
+                                <p id="diag-desc" class="text-secondary"></p>
+                                <div id="diag-alternatives-box">
+                                    <strong>Applied Repair Selector:</strong>
+                                    <pre id="diag-alternatives"></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Run detail empty state -->
+                <div class="glass-card panel-card flex-grow flex-center" id="run-empty-state">
+                    <div class="empty-state">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <p>Select an execution run to inspect results, view screenshots, and trace healing diagnostics.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Visual Diff Modal -->
+    <div id="diff-modal" class="modal">
+        <div class="modal-content glass-card modal-lg">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-images"></i> Visual Regression Analysis</h2>
+                <span class="close-btn" id="close-diff">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="diff-comparison-container">
+                    <div class="diff-frame">
+                        <h3>Baseline Screenshot</h3>
+                        <div class="diff-scroll"><img id="img-baseline" class="diff-screenshot" src="" alt="Baseline"></div>
+                    </div>
+                    <div class="diff-frame">
+                        <h3>Current Screenshot</h3>
+                        <div class="diff-scroll"><img id="img-current" class="diff-screenshot" src="" alt="Current"></div>
+                    </div>
+                    <div class="diff-frame">
+                        <h3>Visual Diff Overlay</h3>
+                        <div class="diff-scroll"><img id="img-diff" class="diff-screenshot" src="" alt="Visual Diff"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Spinner loading screen -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="spinner-container">
+            <div class="spinner"></div>
+            <p id="loading-text">Discovering user flows...</p>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

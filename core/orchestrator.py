@@ -7,7 +7,7 @@ from langgraph.graph import StateGraph, END
 
 from core.schema import FlowSchema, RunReport, DiagnosisReport
 from core import storage
-from agents import script_generator, execution_agent, error_diagnosis, adaptive_repair, regression_monitor
+from agents import script_generator, execution_agent, error_diagnosis, adaptive_repair, regression_monitor, flow_discovery
 
 GENERATED_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts", "generated")
 
@@ -32,6 +32,7 @@ class OrchState(TypedDict):
     run_report: Optional[RunReport]
     diagnosis: Optional[DiagnosisReport]
     attempt: int   # number of repair attempts completed so far
+    rediscovered: bool  # True after one re-discovery attempt (prevents infinite loop)
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +156,40 @@ def repair_node(state: OrchState) -> dict:
     return {"script_content": new_script, "attempt": new_attempt}
 
 
+def rediscover_node(state: OrchState) -> dict:
+    """Re-discover the flow from scratch when an element has been permanently removed."""
+    flow = state["flow"]
+    goal = flow.goal or flow.flow_name
+    print(f"[Orchestrator] Element removed from site; re-discovering flow for: {flow.url}")
+    try:
+        new_flow = flow_discovery.discover_flow(
+            url=flow.url,
+            goal=goal,
+            api_key=state["api_key"],
+            provider=state["provider"],
+            base_url=state["base_url"],
+            model=state["model"],
+        )
+        # Preserve the original flow_id so run history stays linked
+        new_flow_data = new_flow.dict()
+        new_flow_data["flow_id"] = flow.flow_id
+        new_flow = FlowSchema(**new_flow_data)
+        storage.save_flow(new_flow)
+
+        script_path = os.path.join(GENERATED_DIR, f"{flow.flow_id}.py")
+        new_script = script_generator.generate_script(
+            new_flow, state["api_key"], state["provider"], state["base_url"], state["model"]
+        )
+        with open(script_path, "w", encoding="utf-8") as f:
+            f.write(new_script)
+
+        print(f"[Orchestrator] Re-discovery complete: {len(new_flow.steps)} steps discovered.")
+        return {"flow": new_flow, "script_content": new_script, "attempt": 0, "rediscovered": True}
+    except Exception as e:
+        print(f"[Orchestrator] Re-discovery failed: {e}; escalating to visual diff.")
+        return {"rediscovered": True}
+
+
 def visual_diff_node(state: OrchState) -> dict:
     """Run a pixel-diff against the stored baseline if one exists."""
     baseline = storage.get_baseline(state["flow_id"])
@@ -184,9 +219,14 @@ def route_after_execute(state: OrchState) -> Literal["diagnose", "visual_diff"]:
     return "visual_diff"
 
 
-def route_after_diagnose(state: OrchState) -> Literal["repair", "visual_diff"]:
+def route_after_diagnose(state: OrchState) -> Literal["repair", "rediscover", "visual_diff"]:
     diag = state["diagnosis"]
-    if diag and diag.repair_eligible:
+    if diag is None:
+        return "visual_diff"
+    if diag.root_cause == "element_removed" and not state.get("rediscovered", False):
+        print("[Orchestrator] Element permanently removed; triggering re-discovery.")
+        return "rediscover"
+    if diag.repair_eligible:
         return "repair"
     print("[Orchestrator] Error not repair-eligible; escalating.")
     return "visual_diff"
@@ -203,6 +243,7 @@ def _build_graph():
     g.add_node("execute",     execute_node)
     g.add_node("diagnose",    diagnose_node)
     g.add_node("repair",      repair_node)
+    g.add_node("rediscover",  rediscover_node)
     g.add_node("visual_diff", visual_diff_node)
 
     g.set_entry_point("prepare")
@@ -216,10 +257,11 @@ def _build_graph():
     g.add_conditional_edges(
         "diagnose",
         route_after_diagnose,
-        {"repair": "repair", "visual_diff": "visual_diff"},
+        {"repair": "repair", "rediscover": "rediscover", "visual_diff": "visual_diff"},
     )
 
     g.add_edge("repair",      "execute")
+    g.add_edge("rediscover",  "execute")
     g.add_edge("visual_diff", END)
 
     return g.compile()
@@ -256,6 +298,7 @@ def run_orchestrated_flow(
         "run_report":          None,
         "diagnosis":           None,
         "attempt":             0,
+        "rediscovered":        False,
         "max_repair_attempts": max_repair_attempts,
         "api_key":             api_key,
         "provider":            provider,

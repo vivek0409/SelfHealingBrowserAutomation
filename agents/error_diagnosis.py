@@ -46,16 +46,37 @@ IMPORTANT — distinguish a real timeout from an intercepted click:
 Classify whether the repair is eligible (we attempt repair for `broken_selector` and `timeout`,
 including overlay-interception cases described above).
 
+CRITICAL — for `broken_selector` errors, also determine the `root_cause`:
+- `"redesign"`: The selector broke because the site's design changed (element renamed,
+  restructured, or moved), BUT a functionally equivalent element DOES still exist somewhere
+  in the DOM snapshot — same text, same role/purpose, or nearby in the DOM. Set
+  `repair_eligible` to true; the selector can be swapped.
+- `"element_removed"`: The element AND the functionality it represented are COMPLETELY GONE
+  from the page. No equivalent element exists anywhere in the DOM snapshot. The site has
+  removed this feature entirely. Set `repair_eligible` to false; the entire flow must be
+  re-discovered against the updated site.
+- `"other"`: The failure is not about a missing or changed element (e.g. timeout, auth,
+  network). Set `repair_eligible` according to the error type as normal.
+
+When classifying `root_cause` for `broken_selector`:
+1. Search the DOM snapshot thoroughly for any element with the same visible text, aria-label,
+   placeholder, role, or nearby structural position as the failing selector.
+2. If you find at least one candidate — classify as `"redesign"` and list it in
+   `suggested_alternatives`.
+3. If the DOM snapshot has no trace of anything functionally equivalent — classify as
+   `"element_removed"` and leave `suggested_alternatives` empty.
+
 Format the response strictly as a JSON object matching this schema:
-{
+{{
   "error_type": "broken_selector | timeout | navigation_failure | assertion_failure | server_error | auth_failure | unknown",
   "confidence": 0.9,
   "affected_step": 2,
   "affected_selector": "#selector-that-failed",
   "suggested_alternatives": [".suggested-class", "[data-testid='btn']"],
   "repair_eligible": true,
+  "root_cause": "redesign | element_removed | other",
   "explanation": "Brief explanation of why it failed and how to fix it."
-}
+}}
 
 Do not wrap response in markdown code blocks. Return raw JSON.
 """
@@ -114,5 +135,6 @@ def diagnose_run(
         affected_selector=diag_data.get("affected_selector"),
         suggested_alternatives=diag_data.get("suggested_alternatives", []),
         repair_eligible=diag_data.get("repair_eligible", False),
+        root_cause=diag_data.get("root_cause", "other"),
         explanation=diag_data.get("explanation", "Unknown error"),
     )

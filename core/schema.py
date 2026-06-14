@@ -15,6 +15,7 @@ class FlowSchema(BaseModel):
     flow_id: str
     flow_name: str
     url: str
+    goal: Optional[str] = None
     steps: List[FlowStep]
     created_at: str
     target_framework: str = "playwright"
@@ -50,4 +51,5 @@ class DiagnosisReport(BaseModel):
     affected_selector: Optional[str] = None
     suggested_alternatives: List[str] = []
     repair_eligible: bool
+    root_cause: str = "other"  # redesign | element_removed | other
     explanation: str

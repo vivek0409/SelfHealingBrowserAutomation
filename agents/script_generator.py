@@ -28,18 +28,18 @@ Do NOT write imports, function definitions, `with sync_playwright()`, browser/co
 creation, try/except, artifact capture, or `sys.exit`. ONLY emit the step statements.
 
 For EACH step, in order, emit exactly:
-  1. A comment line: `# STEP {step_id}: {description}`
-  2. `current_step = {step_id}`
-  3. `current_selector = "{selector}"`  (use `None` if the step has no selector)
+  1. A comment line: `# STEP {{step_id}}: {{description}}`
+  2. `current_step = {{step_id}}`
+  3. `current_selector = "{{selector}}"`  (use `None` if the step has no selector)
   4. The action call, always passing the step's timeout in milliseconds:
-       - navigate: navigate(page, "{value}", {timeout_ms})   # waits for the page to load; NEVER use page.goto directly
-       - click:    safe_click(page, "{selector}", {timeout_ms})   # NEVER page.click directly
-       - fill:     safe_fill(page, "{selector}", "{value}", {timeout_ms})   # waits for the field; NEVER page.fill directly
-       - select:   safe_select(page, "{selector}", "{value}", {timeout_ms})   # NEVER page.select_option directly
-       - hover:    safe_hover(page, "{selector}", {timeout_ms})   # NEVER page.hover directly
-       - press:    safe_press(page, "{selector}", "{value}", {timeout_ms})   # value is the key, e.g. "Enter"; NEVER page.press directly
+       - navigate: navigate(page, "{{value}}", {{timeout_ms}})   # waits for the page to load; NEVER use page.goto directly
+       - click:    safe_click(page, "{{selector}}", {{timeout_ms}})   # NEVER page.click directly
+       - fill:     safe_fill(page, "{{selector}}", "{{value}}", {{timeout_ms}})   # waits for the field; NEVER page.fill directly
+       - select:   safe_select(page, "{{selector}}", "{{value}}", {{timeout_ms}})   # NEVER page.select_option directly
+       - hover:    safe_hover(page, "{{selector}}", {{timeout_ms}})   # NEVER page.hover directly
+       - press:    safe_press(page, "{{selector}}", "{{value}}", {{timeout_ms}})   # value is the key, e.g. "Enter"; NEVER page.press directly
        - assert:   if a selector is given, use
-                   `page.wait_for_selector("{selector}", timeout={timeout_ms})` to assert the
+                   `page.wait_for_selector("{{selector}}", timeout={{timeout_ms}})` to assert the
                    element is present (raises on failure). If `value` expresses a URL/text
                    expectation, ALSO verify it and `raise AssertionError(...)` on mismatch.
                    `page.url` is a PROPERTY — use `page.url`, never `page.url()`.

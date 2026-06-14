@@ -21,7 +21,7 @@ the steps already completed, and a list of REAL elements currently on the page (
 attributes and visible text). Decide the single NEXT action, OR declare the goal complete.
 
 Respond with ONE raw JSON object (no markdown):
-{
+{{
   "flow_name": "<short name for the overall flow>",
   "done": false,
   "action": "click | fill | select | hover | press | navigate | assert",
@@ -31,7 +31,7 @@ Respond with ONE raw JSON object (no markdown):
   "description": "<short human description of this step>",
   "timeout_ms": 5000,
   "reason": "<why this is the right next action toward the goal>"
-}
+}}
 Set "done": true (and omit the action fields) when the goal is already accomplished by the
 completed steps.
 
@@ -376,6 +376,7 @@ def discover_flow(
         flow_id=str(uuid.uuid4()),
         flow_name=flow_name,
         url=url,
+        goal=goal,
         steps=steps,
         created_at=datetime.utcnow().isoformat() + "Z",
         target_framework="playwright",

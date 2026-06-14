@@ -1,8 +1,12 @@
 import os
 import shutil
 from typing import Optional
-from core.schema import DiagnosisReport, FlowSchema
-from core.llm import call_llm
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+from core.schema import DiagnosisReport
+from core.llm import get_llm
 
 SYSTEM_PROMPT = """
 You are the Adaptive Repair Agent. Your task is to auto-patch a broken Playwright Python script based on a DiagnosisReport.
@@ -27,6 +31,32 @@ Guidelines:
 Output ONLY the fully patched Python script code. Do not wrap the response in markdown code blocks (like ```python) or include extra text.
 """
 
+_REPAIR_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", SYSTEM_PROMPT),
+    ("human", (
+        "Original Script content:\n{script}\n\n"
+        "Diagnosis Report:\n"
+        "- Error Type: {error_type}\n"
+        "- Affected Step: {affected_step}\n"
+        "- Affected Selector: {affected_selector}\n"
+        "- Suggested Selector/Wait Alternatives: {suggested_alternatives}\n"
+        "- Explanation: {explanation}\n\n"
+        "Please provide the corrected script content."
+    )),
+])
+
+
+def _strip_fences(code: str) -> str:
+    code = code.strip()
+    if code.startswith("```python"):
+        code = code[9:]
+    elif code.startswith("```"):
+        code = code[3:]
+    if code.endswith("```"):
+        code = code[:-3]
+    return code.strip()
+
+
 def repair_script(
     flow_id: str,
     original_script: str,
@@ -34,54 +64,29 @@ def repair_script(
     api_key: str,
     provider: str = "openai",
     base_url: Optional[str] = None,
-    model: Optional[str] = None
+    model: Optional[str] = None,
 ) -> str:
-    # Backup the original script
     generated_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts", "generated")
     original_path = os.path.join(generated_dir, f"{flow_id}.py")
     if os.path.exists(original_path):
         backup_path = os.path.join(generated_dir, f"{flow_id}_backup.py")
         shutil.copy2(original_path, backup_path)
         print(f"Backed up original script to {backup_path}")
-        
-    user_prompt = f"""
-    Original Script content:
-    {original_script}
-    
-    Diagnosis Report:
-    - Error Type: {diagnosis.error_type}
-    - Affected Step: {diagnosis.affected_step}
-    - Affected Selector: {diagnosis.affected_selector}
-    - Suggested Selector/Wait Alternatives: {diagnosis.suggested_alternatives}
-    - Explanation: {diagnosis.explanation}
-    
-    Please provide the corrected script content.
-    """
-    
-    patched_code = call_llm(
-        system_prompt=SYSTEM_PROMPT,
-        user_prompt=user_prompt,
-        api_key=api_key,
-        provider=provider,
-        base_url=base_url,
-        model=model
-    )
-    
-    # Strip markdown if any
-    patched_code = patched_code.strip()
-    if patched_code.startswith("```python"):
-        patched_code = patched_code[9:]
-    elif patched_code.startswith("```"):
-        patched_code = patched_code[3:]
-        
-    if patched_code.endswith("```"):
-        patched_code = patched_code[:-3]
 
-    patched_code = patched_code.strip()
+    llm = get_llm(api_key, provider, base_url, model)
+    chain = _REPAIR_PROMPT | llm | StrOutputParser()
 
-    # Guard: a patch that doesn't compile (or that the model truncated) must not
-    # replace a runnable script. Fall back to the original so the run can proceed
-    # / be re-diagnosed instead of failing on a syntax error.
+    patched_code = chain.invoke({
+        "script": original_script,
+        "error_type": diagnosis.error_type,
+        "affected_step": diagnosis.affected_step,
+        "affected_selector": diagnosis.affected_selector,
+        "suggested_alternatives": diagnosis.suggested_alternatives,
+        "explanation": diagnosis.explanation,
+    })
+
+    patched_code = _strip_fences(patched_code)
+
     try:
         compile(patched_code, "<patched_script>", "exec")
     except SyntaxError as e:

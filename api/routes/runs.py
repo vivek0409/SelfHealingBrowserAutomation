@@ -5,12 +5,6 @@ from core.schema import RunReport, DiagnosisReport
 from agents import adaptive_repair, execution_agent
 import os
 
-# On server deployments there is no display server, so headed mode will crash.
-# Detect this by checking for $DISPLAY (Linux/macOS) or the ENV flag set on Render.
-_NO_DISPLAY = not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY")
-_IS_PRODUCTION = os.environ.get("ENV") == "production"
-_FORCE_HEADLESS = _IS_PRODUCTION or _NO_DISPLAY
-
 router = APIRouter()
 GENERATED_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "scripts", "generated")
 

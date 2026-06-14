@@ -1,0 +1,1831 @@
+<!DOCTYPE html><html lang="en"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UI Interaction Playground</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --primary: #4f46e5;
+      --primary-dark: #3730a3;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --info: #0891b2;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --muted: #64748b;
+      --radius: 8px;
+      --shadow: 0 1px 3px rgba(0, 0, 0, .12), 0 1px 2px rgba(0, 0, 0, .08);
+      --shadow-lg: 0 10px 25px rgba(0, 0, 0, .12);
+    }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* ── NAV ── */
+    nav {
+      background: var(--primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      height: 60px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow);
+    }
+
+    nav .logo {
+      font-weight: 700;
+      font-size: 1.2rem;
+      letter-spacing: -.5px;
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    nav ul li a {
+      color: rgba(255, 255, 255, .8);
+      text-decoration: none;
+      font-size: .9rem;
+      padding: .25rem .5rem;
+      border-radius: 4px;
+      transition: background .2s, color .2s;
+    }
+
+    nav ul li a:hover {
+      background: rgba(255, 255, 255, .15);
+      color: #fff;
+    }
+
+    nav .nav-cta {
+      background: #fff;
+      color: var(--primary);
+      border: none;
+      padding: .4rem 1rem;
+      border-radius: var(--radius);
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s;
+    }
+
+    nav .nav-cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, .2);
+    }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #0891b2 100%);
+      color: #fff;
+      text-align: center;
+      padding: 5rem 2rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 800;
+      margin-bottom: 1rem;
+    }
+
+    .hero p {
+      font-size: 1.15rem;
+      opacity: .85;
+      max-width: 550px;
+      margin: 0 auto 2rem;
+    }
+
+    .hero-btns {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .65rem 1.4rem;
+      border-radius: var(--radius);
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all .2s;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: #fff;
+      color: var(--primary);
+    }
+
+    .btn-primary:hover {
+      background: #e0e7ff;
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: #fff;
+      border-color: rgba(255, 255, 255, .6);
+    }
+
+    .btn-outline:hover {
+      background: rgba(255, 255, 255, .15);
+      border-color: #fff;
+    }
+
+    /* ── LAYOUT ── */
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
+      display: grid;
+      gap: 3rem;
+    }
+
+    section {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: var(--shadow);
+    }
+
+    section h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      padding-bottom: .75rem;
+      border-bottom: 2px solid var(--border);
+      color: var(--primary);
+    }
+
+    /* ── BUTTONS ── */
+    .btn-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .75rem;
+      align-items: center;
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+      border-color: var(--success);
+    }
+
+    .btn-success:hover {
+      background: #15803d;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(22, 163, 74, .35);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+      border-color: var(--danger);
+    }
+
+    .btn-danger:hover {
+      background: #b91c1c;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(220, 38, 38, .35);
+    }
+
+    .btn-warning {
+      background: var(--warning);
+      color: #fff;
+      border-color: var(--warning);
+    }
+
+    .btn-warning:hover {
+      background: #b45309;
+      transform: translateY(-2px);
+    }
+
+    .btn-info {
+      background: var(--info);
+      color: #fff;
+      border-color: var(--info);
+    }
+
+    .btn-info:hover {
+      background: #0e7490;
+      transform: translateY(-2px);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    .btn-ghost:hover {
+      background: var(--bg);
+    }
+
+    .btn-sm {
+      padding: .35rem .85rem;
+      font-size: .82rem;
+    }
+
+    .btn-lg {
+      padding: .85rem 2rem;
+      font-size: 1.05rem;
+    }
+
+    .btn-icon {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      justify-content: center;
+      border-radius: 50%;
+    }
+
+    .btn:active {
+      transform: scale(.97) !important;
+    }
+
+    .btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* ── FORM ── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+
+    @media (max-width: 600px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: .35rem;
+    }
+
+    .field.full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="tel"],
+    input[type="date"],
+    input[type="url"],
+    input[type="search"],
+    select,
+    textarea {
+      width: 100%;
+      padding: .55rem .85rem;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      font-size: .95rem;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, .15);
+    }
+
+    input:invalid:not(:placeholder-shown) {
+      border-color: var(--danger);
+    }
+
+    input:valid:not(:placeholder-shown) {
+      border-color: var(--success);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+    }
+
+    .input-group {
+      display: flex;
+    }
+
+    .input-group input {
+      border-radius: var(--radius) 0 0 var(--radius);
+    }
+
+    .input-group .btn {
+      border-radius: 0 var(--radius) var(--radius) 0;
+      border: 1.5px solid var(--primary);
+    }
+
+    .hint {
+      font-size: .78rem;
+      color: var(--muted);
+    }
+
+    /* range */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 2px solid #fff;
+      box-shadow: var(--shadow);
+    }
+
+    /* color */
+    input[type="color"] {
+      height: 40px;
+      width: 60px;
+      padding: 2px;
+      border-radius: var(--radius);
+      cursor: pointer;
+    }
+
+    /* file */
+    .file-drop {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+
+    .file-drop:hover {
+      border-color: var(--primary);
+      background: #eef2ff;
+    }
+
+    .file-drop input {
+      display: none;
+    }
+
+    /* checkbox / radio */
+    .check-group {
+      display: flex;
+      flex-direction: column;
+      gap: .6rem;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      cursor: pointer;
+      font-size: .95rem;
+    }
+
+    .check-row input[type="checkbox"],
+    .check-row input[type="radio"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    /* toggle switch */
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      cursor: pointer;
+    }
+
+    .toggle input {
+      display: none;
+    }
+
+    .toggle-track {
+      width: 44px;
+      height: 24px;
+      background: var(--border);
+      border-radius: 12px;
+      position: relative;
+      transition: background .2s;
+    }
+
+    .toggle input:checked+.toggle-track {
+      background: var(--primary);
+    }
+
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: var(--shadow);
+      transition: transform .2s;
+    }
+
+    .toggle input:checked+.toggle-track::after {
+      transform: translateX(20px);
+    }
+
+    /* ── CARDS / HOVER ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      cursor: pointer;
+      transition: transform .2s, box-shadow .2s, border-color .2s;
+      user-select: none;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+      border-color: var(--primary);
+    }
+
+    .card:active {
+      transform: scale(.98);
+    }
+
+    .card-icon {
+      font-size: 2rem;
+      margin-bottom: .5rem;
+    }
+
+    .card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .card p {
+      font-size: .82rem;
+      color: var(--muted);
+      margin-top: .25rem;
+    }
+
+    /* ── TABS ── */
+    .tabs {
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      gap: .25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab {
+      padding: .55rem 1.1rem;
+      border: none;
+      background: none;
+      font-size: .9rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color .15s, border-color .15s;
+    }
+
+    .tab:hover {
+      color: var(--primary);
+    }
+
+    .tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* ── ACCORDION ── */
+    .accordion-item {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: .5rem;
+    }
+
+    .accordion-header {
+      width: 100%;
+      padding: .9rem 1.1rem;
+      background: var(--bg);
+      border: none;
+      text-align: left;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background .15s;
+    }
+
+    .accordion-header:hover {
+      background: #e0e7ff;
+    }
+
+    .accordion-header::after {
+      content: '▼';
+      font-size: .75rem;
+      transition: transform .2s;
+    }
+
+    .accordion-header.open::after {
+      transform: rotate(-180deg);
+    }
+
+    .accordion-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .3s ease, padding .3s;
+      padding: 0 1.1rem;
+      font-size: .9rem;
+      color: var(--muted);
+    }
+
+    .accordion-body.open {
+      max-height: 200px;
+      padding: .9rem 1.1rem;
+    }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 2rem;
+      max-width: 480px;
+      width: 90%;
+      box-shadow: var(--shadow-lg);
+      animation: fadeUp .25s ease;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .modal h3 {
+      font-size: 1.2rem;
+      margin-bottom: .75rem;
+    }
+
+    .modal p {
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+      font-size: .9rem;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: .75rem;
+      justify-content: flex-end;
+    }
+
+    /* ── TOOLTIP ── */
+    .tooltip-demo {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    [data-tooltip] {
+      position: relative;
+    }
+
+    [data-tooltip]::before {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 120%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      color: #fff;
+      font-size: .78rem;
+      padding: .35rem .65rem;
+      border-radius: 5px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s;
+    }
+
+    [data-tooltip]:hover::before {
+      opacity: 1;
+    }
+
+    /* ── PROGRESS / BADGE ── */
+    .progress-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: .75rem;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: .82rem;
+      font-weight: 600;
+      margin-bottom: .2rem;
+    }
+
+    .progress-bar {
+      height: 10px;
+      border-radius: 5px;
+      background: var(--border);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 5px;
+      background: var(--primary);
+      transition: width .6s ease;
+    }
+
+    .progress-fill.success {
+      background: var(--success);
+    }
+
+    .progress-fill.warning {
+      background: var(--warning);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: .2rem .6rem;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 700;
+    }
+
+    .badge-primary {
+      background: #e0e7ff;
+      color: var(--primary);
+    }
+
+    .badge-success {
+      background: #dcfce7;
+      color: var(--success);
+    }
+
+    .badge-danger {
+      background: #fee2e2;
+      color: var(--danger);
+    }
+
+    .badge-warning {
+      background: #fef3c7;
+      color: var(--warning);
+    }
+
+    .badges {
+      display: flex;
+      gap: .5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    /* ── TABLE ── */
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .9rem;
+    }
+
+    thead {
+      background: #eef2ff;
+    }
+
+    th,
+    td {
+      padding: .7rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      font-weight: 700;
+      color: var(--primary);
+      white-space: nowrap;
+    }
+
+    tr:hover td {
+      background: #f8faff;
+    }
+
+    .sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .sortable:hover {
+      color: var(--primary-dark);
+    }
+
+    /* ── ALERT / TOAST ── */
+    .alert {
+      padding: .85rem 1.1rem;
+      border-radius: var(--radius);
+      border-left: 4px solid;
+      margin-bottom: .75rem;
+      font-size: .9rem;
+    }
+
+    .alert-info {
+      background: #e0f2fe;
+      border-color: var(--info);
+      color: #075985;
+    }
+
+    .alert-success {
+      background: #dcfce7;
+      border-color: var(--success);
+      color: #166534;
+    }
+
+    .alert-warning {
+      background: #fef3c7;
+      border-color: var(--warning);
+      color: #92400e;
+    }
+
+    .alert-danger {
+      background: #fee2e2;
+      border-color: var(--danger);
+      color: #991b1b;
+    }
+
+    #toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+    }
+
+    .toast {
+      background: #1e293b;
+      color: #fff;
+      padding: .75rem 1.25rem;
+      border-radius: var(--radius);
+      font-size: .88rem;
+      box-shadow: var(--shadow-lg);
+      animation: slideIn .3s ease;
+      cursor: pointer;
+    }
+
+    .toast.success {
+      background: var(--success);
+    }
+
+    .toast.danger {
+      background: var(--danger);
+    }
+
+    .toast.warning {
+      background: var(--warning);
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes slideOut {
+      to {
+        opacity: 0;
+        transform: translateX(30px);
+      }
+    }
+
+    /* ── DRAG & DROP ── */
+    .drag-area {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .drag-list {
+      flex: 1;
+      min-width: 200px;
+      border: 1.5px dashed var(--border);
+      border-radius: var(--radius);
+      padding: .75rem;
+      min-height: 160px;
+    }
+
+    .drag-list h4 {
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .drag-item {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: .55rem .85rem;
+      margin-bottom: .5rem;
+      cursor: grab;
+      font-size: .9rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      transition: box-shadow .15s, opacity .15s;
+    }
+
+    .drag-item:active {
+      cursor: grabbing;
+    }
+
+    .drag-item.dragging {
+      opacity: .4;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .drag-list.drag-over {
+      border-color: var(--primary);
+      background: #eef2ff;
+    }
+
+    /* ── COUNTER / ANIMATION ── */
+    .counter-box {
+      text-align: center;
+    }
+
+    .counter-display {
+      font-size: 3rem;
+      font-weight: 800;
+      color: var(--primary);
+      margin: .5rem 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .counter-btns {
+      display: flex;
+      gap: .75rem;
+      justify-content: center;
+    }
+
+    /* ── SEARCH ── */
+    .search-box {
+      position: relative;
+    }
+
+    .search-box input {
+      padding-left: 2.5rem;
+    }
+
+    .search-box .search-icon {
+      position: absolute;
+      left: .75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    #search-results {
+      margin-top: .75rem;
+      display: flex;
+      flex-direction: column;
+      gap: .4rem;
+    }
+
+    .result-item {
+      padding: .5rem .85rem;
+      border-radius: var(--radius);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      font-size: .9rem;
+      cursor: pointer;
+      transition: background .15s;
+    }
+
+    .result-item:hover {
+      background: #eef2ff;
+    }
+
+    .result-item mark {
+      background: #fde68a;
+      border-radius: 2px;
+      padding: 0 2px;
+    }
+
+    /* ── RATING ── */
+    .star-rating {
+      display: flex;
+      gap: .25rem;
+      font-size: 2rem;
+      cursor: pointer;
+    }
+
+    .star {
+      transition: color .1s;
+      color: var(--border);
+    }
+
+    .star.active,
+    .star:hover,
+    .star-rating:hover .star {
+      color: #f59e0b;
+    }
+
+    .star-rating .star:hover~.star {
+      color: var(--border);
+    }
+
+    /* ── COLOR THEME SWITCHER ── */
+    .theme-swatches {
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+    }
+
+    .swatch {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: transform .15s, border-color .15s;
+    }
+
+    .swatch:hover {
+      transform: scale(1.15);
+    }
+
+    .swatch.active {
+      border-color: var(--text);
+    }
+
+    /* ── RESPONSIVE TABLE-LIKE ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+    }
+
+    .stat-card {
+      background: var(--bg);
+      border-radius: var(--radius);
+      padding: 1.2rem;
+      text-align: center;
+      border: 1px solid var(--border);
+      transition: transform .2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-3px);
+    }
+
+    .stat-num {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    .stat-label {
+      font-size: .78rem;
+      color: var(--muted);
+      font-weight: 600;
+      margin-top: .2rem;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: #1e293b;
+      color: #94a3b8;
+      text-align: center;
+      padding: 2rem;
+      font-size: .85rem;
+    }
+
+    footer a {
+      color: #818cf8;
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* ── LOADER ── */
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .skeleton {
+      background: linear-gradient(90deg, var(--border) 25%, #f1f5f9 50%, var(--border) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: var(--radius);
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: 200% 0;
+      }
+
+      100% {
+        background-position: -200% 0;
+      }
+    }
+
+    /* ── MISC ── */
+    .flex-wrap-center {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .75rem;
+      align-items: center;
+    }
+
+    .mt1 {
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ─── NAVIGATION ─── -->
+  <nav>
+    <span class="logo">◆ UIPlay</span>
+    <ul>
+      <li><a href="#buttons">Buttons</a></li>
+      <li><a href="#forms">Forms</a></li>
+      <li><a href="#components">Components</a></li>
+      <li><a href="#data">Data</a></li>
+    </ul>
+    <button class="nav-cta" onclick="showToast('Welcome to UIPlay!','success')">Get Started</button>
+  </nav>
+
+  <!-- ─── HERO ─── -->
+  <header class="hero">
+    <h1>UI Interaction Playground</h1>
+    <p>Every common web interaction in one page — buttons, forms, modals, drag &amp; drop, tabs, and more.</p>
+    <div class="hero-btns">
+      <button class="btn btn-primary" onclick="document.getElementById('forms').scrollIntoView({behavior:'smooth'})">Try
+        the Forms</button>
+      <button class="btn btn-outline" onclick="openModal()">Open a Modal</button>
+    </div>
+  </header>
+
+  <!-- ─── STATS ─── -->
+  <main>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-num" id="ctr-clicks">0</div>
+        <div class="stat-label">Button Clicks</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="ctr-keys">1</div>
+        <div class="stat-label">Keys Typed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="ctr-hover">0</div>
+        <div class="stat-label">Hover Events</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="ctr-forms">0</div>
+        <div class="stat-label">Forms Submitted</div>
+      </div>
+    </div>
+
+    <!-- ─── BUTTONS ─── -->
+    <section id="buttons">
+      <h2>▶ Buttons &amp; Interactions</h2>
+
+      <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem;">Variants</p>
+      <div class="btn-grid">
+        <button class="btn btn-primary" onclick="track('clicks')">Primary</button>
+        <button class="btn btn-success" onclick="track('clicks')">Success</button>
+        <button class="btn btn-danger" onclick="track('clicks')">Danger</button>
+        <button class="btn btn-warning" onclick="track('clicks')">Warning</button>
+        <button class="btn btn-info" onclick="track('clicks')">Info</button>
+        <button class="btn btn-ghost" onclick="track('clicks')">Ghost</button>
+        <button class="btn btn-primary btn-sm" onclick="track('clicks')">Small</button>
+        <button class="btn btn-primary btn-lg" onclick="track('clicks')">Large</button>
+        <button class="btn btn-primary btn-icon" title="Icon" onclick="track('clicks')">✔</button>
+        <button class="btn btn-danger" disabled="">Disabled</button>
+      </div>
+
+      <p style="font-size:.85rem;color:var(--muted);margin-top:1.5rem;margin-bottom:1rem;">Tooltips (hover me)</p>
+      <div class="tooltip-demo">
+        <button class="btn btn-ghost" data-tooltip="This is a tooltip!" onclick="track('clicks')">Hover for
+          tooltip</button>
+        <button class="btn btn-ghost" data-tooltip="Copy to clipboard" onclick="copyText('Hello UIPlay!');track('clicks')">Click to Copy</button>
+        <button class="btn btn-ghost" data-tooltip="Trigger a loading state" onclick="loadBtn(this);track('clicks')">Loading Button</button>
+        <button class="btn btn-ghost" data-tooltip="Animate count" onclick="animateCounter();track('clicks')">Animate
+          Counter</button>
+      </div>
+
+      <p style="font-size:.85rem;color:var(--muted);margin-top:1.5rem;margin-bottom:1rem;">Toast Notifications</p>
+      <div class="btn-grid">
+        <button class="btn btn-info" onclick="showToast('Info message!');track('clicks')">Info Toast</button>
+        <button class="btn btn-success" onclick="showToast('Saved successfully!','success');track('clicks')">Success
+          Toast</button>
+        <button class="btn btn-danger" onclick="showToast('Something went wrong.','danger');track('clicks')">Error
+          Toast</button>
+        <button class="btn btn-warning" onclick="showToast('Check your input.','warning');track('clicks')">Warning
+          Toast</button>
+      </div>
+    </section>
+
+    <!-- ─── FORMS ─── -->
+    <section id="forms">
+      <h2>▶ Form Elements</h2>
+      <form id="main-form" onsubmit="submitForm(event)">
+        <div class="form-grid">
+
+          <div class="field">
+            <label for="fname">First Name *</label>
+            <input type="text" id="fname" name="fname" placeholder="Jane" required="" style="">
+          </div>
+          <div class="field">
+            <label for="lname">Last Name *</label>
+            <input type="text" id="lname" name="lname" placeholder="Doe" required="" style="">
+          </div>
+          <div class="field">
+            <label for="email">Email *</label>
+            <input type="email" id="email" name="email" placeholder="jane@example.com" required="" style="">
+          </div>
+          <div class="field">
+            <label for="phone">Phone</label>
+            <input type="tel" id="phone" name="phone" placeholder="+1 555 000 0000" style="">
+          </div>
+          <div class="field">
+            <label for="pwd">Password *</label>
+            <input type="password" id="pwd" name="pwd" placeholder="Min 8 chars" minlength="8" required="" style="">
+          </div>
+          <div class="field">
+            <label for="url">Website URL</label>
+            <input type="url" id="url" name="url" placeholder="https://example.com" style="">
+          </div>
+          <div class="field">
+            <label for="dob">Date of Birth</label>
+            <input type="date" id="dob" name="dob" style="">
+          </div>
+          <div class="field">
+            <label for="qty">Quantity</label>
+            <input type="number" id="qty" name="qty" min="0" max="100" value="1" style="">
+          </div>
+
+          <div class="field">
+            <label for="country">Country</label>
+            <select id="country" name="country">
+              <option value="">Select…</option>
+              <option>United States</option>
+              <option>United Kingdom</option>
+              <option>Canada</option>
+              <option>Australia</option>
+              <option>India</option>
+              <option>Germany</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="role">Role</label>
+            <select id="role" name="role" multiple="" style="height:90px;">
+              <option>Developer</option>
+              <option>Designer</option>
+              <option>Manager</option>
+              <option>QA Engineer</option>
+            </select>
+            <span class="hint">Hold Ctrl/Cmd to select multiple</span>
+          </div>
+
+          <!-- Search with autocomplete -->
+          <div class="field full">
+            <label for="search-input">Live Search</label>
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input type="search" id="search-input" placeholder="Type to search fruits…" oninput="doSearch(this.value)" style="">
+            </div>
+            <div id="search-results"></div>
+          </div>
+
+          <!-- Input group -->
+          <div class="field full">
+            <label>Coupon Code</label>
+            <div class="input-group">
+              <input type="text" id="coupon" placeholder="SAVE20" style="">
+              <button type="button" class="btn btn-primary" onclick="applyCoupon()">Apply</button>
+            </div>
+          </div>
+
+          <!-- Range -->
+          <div class="field full">
+            <label>Satisfaction: <strong id="range-val">50</strong>%</label>
+            <input type="range" min="0" max="100" value="50" oninput="document.getElementById('range-val').textContent=this.value" style="">
+          </div>
+
+          <!-- Color -->
+          <div class="field">
+            <label for="fav-color">Favorite Color</label>
+            <input type="color" id="fav-color" value="#4f46e5" oninput="document.documentElement.style.setProperty('--primary',this.value)" style="">
+            <span class="hint">Changes the accent color!</span>
+          </div>
+
+          <!-- File upload -->
+          <div class="field">
+            <label>File Upload</label>
+            <div class="file-drop" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.style.borderColor='var(--primary)'" ondrop="handleDrop(event,this)">
+              <input type="file" id="file-input" multiple="" onchange="showFiles(this)" style="">
+              <div>📄 Drop files here or <strong>browse</strong></div>
+              <div id="file-names" style="font-size:.8rem;color:var(--muted);margin-top:.4rem;"></div>
+            </div>
+          </div>
+
+          <!-- Checkboxes -->
+          <div class="field">
+            <label>Interests</label>
+            <div class="check-group">
+              <label class="check-row"><input type="checkbox" name="interest" value="design" style=""> UI Design</label>
+              <label class="check-row"><input type="checkbox" name="interest" value="dev" checked="" style=""> Development</label>
+              <label class="check-row"><input type="checkbox" name="interest" value="data" style=""> Data Science</label>
+              <label class="check-row"><input type="checkbox" name="interest" value="devops" style=""> DevOps</label>
+            </div>
+          </div>
+
+          <!-- Radio -->
+          <div class="field">
+            <label>Experience Level</label>
+            <div class="check-group">
+              <label class="check-row"><input type="radio" name="level" value="junior" style=""> Junior</label>
+              <label class="check-row"><input type="radio" name="level" value="mid" checked="" style=""> Mid-Level</label>
+              <label class="check-row"><input type="radio" name="level" value="senior" style=""> Senior</label>
+              <label class="check-row"><input type="radio" name="level" value="lead" style=""> Lead / Principal</label>
+            </div>
+          </div>
+
+          <!-- Toggles -->
+          <div class="field">
+            <label>Preferences</label>
+            <div style="display:flex;flex-direction:column;gap:.6rem;margin-top:.25rem;">
+              <label class="toggle"><input type="checkbox" checked="" style=""><span class="toggle-track"></span> Email
+                Notifications</label>
+              <label class="toggle"><input type="checkbox" style=""><span class="toggle-track"></span> Dark Mode</label>
+              <label class="toggle"><input type="checkbox" checked="" style=""><span class="toggle-track"></span> Public
+                Profile</label>
+            </div>
+          </div>
+
+          <!-- Star Rating -->
+          <div class="field">
+            <label>Rate your experience</label>
+            <div class="star-rating" id="star-rating">
+              <span class="star" data-v="1">★</span>
+              <span class="star" data-v="2">★</span>
+              <span class="star" data-v="3">★</span>
+              <span class="star" data-v="4">★</span>
+              <span class="star" data-v="5">★</span>
+            </div>
+            <span class="hint" id="star-label">Click to rate</span>
+          </div>
+
+          <div class="field full">
+            <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Submit Form ➤</button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- ─── COMPONENTS ─── -->
+    <section id="components">
+      <h2>▶ UI Components</h2>
+
+      <!-- TABS -->
+      <div>
+        <div class="tabs" role="tablist">
+          <button class="tab active" onclick="switchTab(this,'t1')">Overview</button>
+          <button class="tab" onclick="switchTab(this,'t2')">Details</button>
+          <button class="tab" onclick="switchTab(this,'t3')">Settings</button>
+        </div>
+        <div id="t1" class="tab-panel active">
+          <p>This is the <strong>Overview</strong> tab content. Tabs allow you to separate related content into distinct
+            panels.</p>
+        </div>
+        <div id="t2" class="tab-panel">
+          <p>This is the <strong>Details</strong> tab. Switch tabs to reveal different content without a page reload.
+          </p>
+        </div>
+        <div id="t3" class="tab-panel">
+          <div class="check-group">
+            <label class="check-row"><input type="checkbox" checked="" style=""> Enable analytics</label>
+            <label class="check-row"><input type="checkbox" style=""> Beta features</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACCORDION -->
+      <div class="mt1">
+        <div class="accordion-item">
+          <button class="accordion-header" onclick="toggleAccordion(this)">What is an accordion?</button>
+          <div class="accordion-body">An accordion is a vertically stacked list of items where each can be "expanded" to
+            reveal content. It keeps the UI clean.</div>
+        </div>
+        <div class="accordion-item">
+          <button class="accordion-header" onclick="toggleAccordion(this)">How do I use this playground?</button>
+          <div class="accordion-body">Interact with every element on the page — fill forms, click buttons, drag cards,
+            open modals. Stats at the top track your activity.</div>
+        </div>
+        <div class="accordion-item">
+          <button class="accordion-header" onclick="toggleAccordion(this)">Can I customize the theme color?</button>
+          <div class="accordion-body">Yes! Use the color picker inside the form section to change the global accent
+            color in real time.</div>
+        </div>
+      </div>
+
+      <!-- MODAL TRIGGER -->
+      <div class="mt1">
+        <button class="btn btn-primary" onclick="openModal();track('clicks')">Open Modal Dialog</button>
+        <button class="btn btn-danger" style="margin-left:.5rem" onclick="openConfirm();track('clicks')">Confirm
+          Dialog</button>
+      </div>
+
+      <!-- PROGRESS BARS -->
+      <div class="progress-wrap mt1">
+        <div>
+          <div class="progress-label"><span>HTML/CSS</span><span>92%</span></div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width:92%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="progress-label"><span>JavaScript</span><span>78%</span></div>
+          <div class="progress-bar">
+            <div class="progress-fill success" style="width:78%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="progress-label"><span>Backend</span><span>55%</span></div>
+          <div class="progress-bar">
+            <div class="progress-fill warning" style="width:55%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BADGES -->
+      <div class="badges mt1">
+        <span>Badges:</span>
+        <span class="badge badge-primary">New</span>
+        <span class="badge badge-success">Active</span>
+        <span class="badge badge-danger">Critical</span>
+        <span class="badge badge-warning">Pending</span>
+      </div>
+
+      <!-- ALERTS -->
+      <div class="mt1">
+        <div class="alert alert-info">ℹ This is an informational alert.</div>
+        <div class="alert alert-success">✔ Your changes have been saved.</div>
+        <div class="alert alert-warning">⚠ Your session will expire soon.</div>
+        <div class="alert alert-danger">✖ Permission denied. Please try again.</div>
+      </div>
+
+      <!-- HOVER CARDS -->
+      <p style="font-size:.85rem;color:var(--muted);margin:.75rem 0 .5rem;">Hover Cards</p>
+      <div class="card-grid">
+        <div class="card" onclick="showToast('Card 1 clicked!');track('clicks')" onmouseenter="track('hover')">
+          <div class="card-icon">🚀</div>
+          <h3>Launches</h3>
+          <p>Hover and click me to trigger events.</p>
+        </div>
+        <div class="card" onclick="showToast('Card 2 clicked!');track('clicks')" onmouseenter="track('hover')">
+          <div class="card-icon">🌟</div>
+          <h3>Favorites</h3>
+          <p>Smooth transform on hover.</p>
+        </div>
+        <div class="card" onclick="showToast('Card 3 clicked!');track('clicks')" onmouseenter="track('hover')">
+          <div class="card-icon">📊</div>
+          <h3>Analytics</h3>
+          <p>Active scale on click.</p>
+        </div>
+        <div class="card" onclick="showToast('Card 4 clicked!');track('clicks')" onmouseenter="track('hover')">
+          <div class="card-icon">⚙</div>
+          <h3>Settings</h3>
+          <p>Border color change on hover.</p>
+        </div>
+      </div>
+
+      <!-- COUNTER -->
+      <div class="counter-box mt1">
+        <p style="color:var(--muted);font-size:.85rem;">Interactive Counter</p>
+        <div class="counter-display" id="counter">0</div>
+        <div class="counter-btns">
+          <button class="btn btn-danger" onclick="changeCounter(-10)">-10</button>
+          <button class="btn btn-danger" onclick="changeCounter(-1)">-1</button>
+          <button class="btn btn-ghost" onclick="resetCounter()">Reset</button>
+          <button class="btn btn-success" onclick="changeCounter(1)">+1</button>
+          <button class="btn btn-success" onclick="changeCounter(10)">+10</button>
+        </div>
+      </div>
+
+      <!-- THEME SWATCHES -->
+      <div class="mt1">
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:.5rem;">Theme Color</p>
+        <div class="theme-swatches">
+          <div class="swatch active" style="background:#4f46e5" onclick="setTheme('#4f46e5',this)" title="Indigo"></div>
+          <div class="swatch" style="background:#0891b2" onclick="setTheme('#0891b2',this)" title="Cyan"></div>
+          <div class="swatch" style="background:#16a34a" onclick="setTheme('#16a34a',this)" title="Green"></div>
+          <div class="swatch" style="background:#dc2626" onclick="setTheme('#dc2626',this)" title="Red"></div>
+          <div class="swatch" style="background:#d97706" onclick="setTheme('#d97706',this)" title="Amber"></div>
+          <div class="swatch" style="background:#7c3aed" onclick="setTheme('#7c3aed',this)" title="Purple"></div>
+          <div class="swatch" style="background:#db2777" onclick="setTheme('#db2777',this)" title="Pink"></div>
+        </div>
+      </div>
+
+      <!-- LOADERS -->
+      <div class="mt1">
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:.5rem;">Loaders</p>
+        <div class="flex-wrap-center">
+          <div class="spinner"></div>
+          <div class="skeleton" style="width:120px;height:16px;"></div>
+          <div class="skeleton" style="width:80px;height:16px;"></div>
+          <div class="skeleton" style="width:48px;height:48px;border-radius:50%;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── DATA ─── -->
+    <section id="data">
+      <h2>▶ Data &amp; Drag</h2>
+
+      <!-- TABLE -->
+      <div class="table-wrap">
+        <table id="data-table">
+          <thead>
+            <tr>
+              <th class="sortable" onclick="sortTable(0)">Name ↕</th>
+              <th class="sortable" onclick="sortTable(1)">Role ↕</th>
+              <th class="sortable" onclick="sortTable(2)">Status ↕</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Alice Johnson</td>
+              <td>Designer</td>
+              <td><span class="badge badge-success">Active</span></td>
+              <td><button class="btn btn-ghost btn-sm" onclick="showToast('Editing Alice');track('clicks')">Edit</button></td>
+            </tr>
+            <tr>
+              <td>Bob Smith</td>
+              <td>Developer</td>
+              <td><span class="badge badge-warning">Pending</span></td>
+              <td><button class="btn btn-ghost btn-sm" onclick="showToast('Editing Bob');track('clicks')">Edit</button>
+              </td>
+            </tr>
+            <tr>
+              <td>Carol White</td>
+              <td>Manager</td>
+              <td><span class="badge badge-success">Active</span></td>
+              <td><button class="btn btn-ghost btn-sm" onclick="showToast('Editing Carol');track('clicks')">Edit</button></td>
+            </tr>
+            <tr>
+              <td>Dave Lee</td>
+              <td>QA Engineer</td>
+              <td><span class="badge badge-danger">Inactive</span></td>
+              <td><button class="btn btn-ghost btn-sm" onclick="showToast('Editing Dave');track('clicks')">Edit</button>
+              </td>
+            </tr>
+            <tr>
+              <td>Eva Martinez</td>
+              <td>Developer</td>
+              <td><span class="badge badge-success">Active</span></td>
+              <td><button class="btn btn-ghost btn-sm" onclick="showToast('Editing Eva');track('clicks')">Edit</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- DRAG & DROP -->
+      <p style="font-size:.85rem;color:var(--muted);margin:1.25rem 0 .5rem;">Drag &amp; Drop (between columns)</p>
+      <div class="drag-area">
+        <div class="drag-list" id="todo-list" ondragover="allowDrop(event)" ondrop="dropItem(event,this)" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+          <h4>To Do</h4>
+          <div class="drag-item" draggable="true" ondragstart="dragStart(event)">🗎 Write tests</div>
+          <div class="drag-item" draggable="true" ondragstart="dragStart(event)">📄 Update docs</div>
+          <div class="drag-item" draggable="true" ondragstart="dragStart(event)">🛠 Fix bug #42</div>
+        </div>
+        <div class="drag-list" id="doing-list" ondragover="allowDrop(event)" ondrop="dropItem(event,this)" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+          <h4>In Progress</h4>
+          <div class="drag-item" draggable="true" ondragstart="dragStart(event)">🚀 Deploy v2.0</div>
+        </div>
+        <div class="drag-list" id="done-list" ondragover="allowDrop(event)" ondrop="dropItem(event,this)" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+          <h4>Done</h4>
+          <div class="drag-item" draggable="true" ondragstart="dragStart(event)">✓ Design mockups</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ─── MODAL ─── -->
+  <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <h3>📝 Modal Dialog</h3>
+      <p>This is a standard modal. You can put any content here — forms, images, data tables. Click outside or press
+        Escape to close.</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="closeModal();showToast('Action confirmed!','success')">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── CONFIRM MODAL ─── -->
+  <div class="modal-overlay" id="confirm-modal" onclick="if(event.target===this)closeConfirm()">
+    <div class="modal">
+      <h3>⚠️ Are you sure?</h3>
+      <p>This action cannot be undone. Please confirm you want to proceed with deleting this item.</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeConfirm()">No, keep it</button>
+        <button class="btn btn-danger" onclick="closeConfirm();showToast('Item deleted.','danger')">Yes, delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── TOAST CONTAINER ─── -->
+  <div id="toast-container"></div>
+
+  <footer>
+    <p>UIPlay — A comprehensive HTML interaction demo • <a href="#">Back to top</a></p>
+  </footer>
+
+  <script>
+    /* ── STATS TRACKERS ── */
+    const ctrs = { clicks: 0, keys: 0, hover: 0, forms: 0 };
+    function track(type) {
+      ctrs[type]++;
+      const map = { clicks: 'ctr-clicks', keys: 'ctr-keys', hover: 'ctr-hover', forms: 'ctr-forms' };
+      document.getElementById(map[type]).textContent = ctrs[type];
+    }
+    document.addEventListener('keydown', () => track('keys'));
+
+    /* ── TOAST ── */
+    function showToast(msg, type = '') {
+      const c = document.getElementById('toast-container');
+      const t = document.createElement('div');
+      t.className = 'toast' + (type ? ' ' + type : '');
+      t.textContent = msg;
+      t.onclick = () => t.remove();
+      c.appendChild(t);
+      setTimeout(() => { t.style.animation = 'slideOut .3s forwards'; setTimeout(() => t.remove(), 300); }, 3000);
+    }
+
+    /* ── MODAL ── */
+    function openModal() { document.getElementById('modal').classList.add('open'); }
+    function closeModal() { document.getElementById('modal').classList.remove('open'); }
+    function openConfirm() { document.getElementById('confirm-modal').classList.add('open'); }
+    function closeConfirm() { document.getElementById('confirm-modal').classList.remove('open'); }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeConfirm(); } });
+
+    /* ── TABS ── */
+    function switchTab(btn, panelId) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(panelId).classList.add('active');
+      track('clicks');
+    }
+
+    /* ── ACCORDION ── */
+    function toggleAccordion(btn) {
+      const body = btn.nextElementSibling;
+      const isOpen = btn.classList.contains('open');
+      document.querySelectorAll('.accordion-header').forEach(h => { h.classList.remove('open'); h.nextElementSibling.classList.remove('open'); });
+      if (!isOpen) { btn.classList.add('open'); body.classList.add('open'); }
+      track('clicks');
+    }
+
+    /* ── COUNTER ── */
+    let counterVal = 0;
+    function changeCounter(n) { counterVal = Math.max(-999, Math.min(999, counterVal + n)); document.getElementById('counter').textContent = counterVal; track('clicks'); }
+    function resetCounter() { counterVal = 0; document.getElementById('counter').textContent = 0; track('clicks'); }
+    function animateCounter() { let i = 0; const iv = setInterval(() => { changeCounter(Math.random() > .5 ? 1 : -1); if (++i > 20) clearInterval(iv); }, 80); }
+
+    /* ── FORM ── */
+    function submitForm(e) {
+      e.preventDefault();
+      track('forms'); track('clicks');
+      showToast('Form submitted successfully!', 'success');
+      document.getElementById('main-form').reset();
+      document.getElementById('range-val').textContent = '50';
+      document.querySelectorAll('.star').forEach(s => s.classList.remove('active'));
+      document.getElementById('star-label').textContent = 'Click to rate';
+    }
+
+    /* ── COUPON ── */
+    function applyCoupon() {
+      const val = document.getElementById('coupon').value.trim().toUpperCase();
+      if (val === 'SAVE20') showToast('Coupon SAVE20 applied! 20% off.', 'success');
+      else if (val === '') showToast('Enter a coupon code first.', 'warning');
+      else showToast(`Coupon "${val}" is invalid.`, 'danger');
+      track('clicks');
+    }
+
+    /* ── COPY ── */
+    function copyText(text) {
+      navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard!', 'success')).catch(() => showToast('Copy failed.', 'danger'));
+    }
+
+    /* ── LOADING BUTTON ── */
+    function loadBtn(btn) {
+      const orig = btn.textContent;
+      btn.disabled = true;
+      btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px"></span>Loading…';
+      setTimeout(() => { btn.disabled = false; btn.textContent = orig; showToast('Loaded!', 'success'); }, 2000);
+    }
+
+    /* ── SEARCH ── */
+    const fruits = ['Apple', 'Apricot', 'Avocado', 'Banana', 'Blackberry', 'Blueberry', 'Cherry', 'Coconut', 'Dragonfruit', 'Elderberry', 'Fig', 'Grape', 'Guava', 'Jackfruit', 'Kiwi', 'Lemon', 'Lime', 'Lychee', 'Mango', 'Melon', 'Nectarine', 'Orange', 'Papaya', 'Peach', 'Pear', 'Pineapple', 'Plum', 'Pomegranate', 'Raspberry', 'Strawberry', 'Tangerine', 'Watermelon'];
+    function doSearch(q) {
+      const r = document.getElementById('search-results');
+      r.innerHTML = '';
+      if (!q) return;
+      const hits = fruits.filter(f => f.toLowerCase().includes(q.toLowerCase())).slice(0, 6);
+      hits.forEach(f => {
+        const d = document.createElement('div');
+        d.className = 'result-item';
+        const re = new RegExp(`(${q})`, 'gi');
+        d.innerHTML = f.replace(re, '<mark>$1</mark>');
+        d.onclick = () => { document.getElementById('search-input').value = f; r.innerHTML = ''; showToast(`Selected: ${f}`); track('clicks'); };
+        r.appendChild(d);
+      });
+      if (!hits.length) { const d = document.createElement('div'); d.className = 'result-item'; d.textContent = 'No results'; r.appendChild(d); }
+      track('keys');
+    }
+
+    /* ── FILE ── */
+    function showFiles(input) {
+      const names = Array.from(input.files).map(f => f.name).join(', ');
+      document.getElementById('file-names').textContent = names || '';
+      showToast(`${input.files.length} file(s) selected`, 'success');
+    }
+    function handleDrop(e, zone) {
+      e.preventDefault();
+      zone.style.borderColor = '';
+      const files = e.dataTransfer.files;
+      if (files.length) showToast(`Dropped ${files.length} file(s)`, 'success');
+    }
+
+    /* ── STAR RATING ── */
+    const stars = document.querySelectorAll('#star-rating .star');
+    let currentRating = 0;
+    stars.forEach(s => {
+      s.addEventListener('click', () => {
+        currentRating = +s.dataset.v;
+        stars.forEach(st => st.classList.toggle('active', +st.dataset.v <= currentRating));
+        document.getElementById('star-label').textContent = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'][currentRating];
+        track('clicks');
+      });
+      s.addEventListener('mouseenter', () => { stars.forEach(st => st.classList.toggle('active', +st.dataset.v <= +s.dataset.v)); track('hover'); });
+      s.addEventListener('mouseleave', () => { stars.forEach(st => st.classList.toggle('active', +st.dataset.v <= currentRating)); });
+    });
+
+    /* ── THEME ── */
+    function setTheme(color, el) {
+      document.documentElement.style.setProperty('--primary', color);
+      document.documentElement.style.setProperty('--primary-dark', color);
+      document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+      el.classList.add('active');
+      track('clicks');
+    }
+
+    /* ── TABLE SORT ── */
+    function sortTable(col) {
+      const tb = document.querySelector('#data-table tbody');
+      const rows = Array.from(tb.querySelectorAll('tr'));
+      const asc = tb.dataset.sort == col ? tb.dataset.dir !== 'asc' : true;
+      tb.dataset.sort = col; tb.dataset.dir = asc ? 'asc' : 'desc';
+      rows.sort((a, b) => {
+        const av = a.cells[col].textContent.trim();
+        const bv = b.cells[col].textContent.trim();
+        return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+      });
+      rows.forEach(r => tb.appendChild(r));
+      track('clicks');
+    }
+
+    /* ── DRAG & DROP (kanban) ── */
+    let draggedEl = null;
+    function dragStart(e) { draggedEl = e.target; e.target.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
+    function allowDrop(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+    function dropItem(e, list) {
+      e.preventDefault();
+      list.classList.remove('drag-over');
+      if (draggedEl) { list.appendChild(draggedEl); draggedEl.classList.remove('dragging'); draggedEl = null; showToast('Card moved!'); track('clicks'); }
+    }
+    document.addEventListener('dragend', () => { if (draggedEl) { draggedEl.classList.remove('dragging'); draggedEl = null; } });
+  </script>
+
+
+</body></html>

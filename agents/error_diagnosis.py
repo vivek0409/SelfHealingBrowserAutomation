@@ -1,9 +1,13 @@
 import uuid
 import os
-from typing import Optional
 import json
+from typing import Optional
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
+
 from core.schema import RunReport, DiagnosisReport, FlowSchema
-from core.llm import call_llm
+from core.llm import get_llm
 
 SYSTEM_PROMPT = """
 You are the Error Diagnosis Agent. Your job is to analyze browser automation script failures.
@@ -56,6 +60,19 @@ Format the response strictly as a JSON object matching this schema:
 Do not wrap response in markdown code blocks. Return raw JSON.
 """
 
+_DIAGNOSE_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", SYSTEM_PROMPT),
+    ("human", (
+        "Flow Name: {flow_name}\n"
+        "Steps: {steps}\n\n"
+        "Original Generated Script:\n{script}\n\n"
+        "Execution Run Error:\n{error}\n\n"
+        "Run Logs:\n{logs}\n\n"
+        "DOM Snapshot (Truncated if large):\n{dom}"
+    )),
+])
+
+
 def diagnose_run(
     run: RunReport,
     flow: FlowSchema,
@@ -63,57 +80,31 @@ def diagnose_run(
     api_key: str,
     provider: str = "openai",
     base_url: Optional[str] = None,
-    model: Optional[str] = None
+    model: Optional[str] = None,
 ) -> DiagnosisReport:
-    # Read the log
     log_content = ""
     if run.artifacts.log and os.path.exists(run.artifacts.log):
         with open(run.artifacts.log, "r", encoding="utf-8") as f:
             log_content = f.read()
-            
-    # Read DOM snapshot
+
     dom_content = ""
     if run.artifacts.dom_snapshot and os.path.exists(run.artifacts.dom_snapshot):
         with open(run.artifacts.dom_snapshot, "r", encoding="utf-8") as f:
-            # Truncate DOM snapshot to keep LLM context reasonable (e.g. first 50,000 characters)
             dom_content = f.read()[:50000]
-            
-    user_prompt = f"""
-    Flow Name: {flow.flow_name}
-    Steps: {json.dumps([step.dict() for step in flow.steps], indent=2)}
-    
-    Original Generated Script:
-    {script_content}
-    
-    Execution Run Error:
-    {json.dumps(run.error.dict() if run.error else {}, indent=2)}
-    
-    Run Logs:
-    {log_content}
-    
-    DOM Snapshot (Truncated if large):
-    {dom_content}
-    """
-    
-    response_text = call_llm(
-        system_prompt=SYSTEM_PROMPT,
-        user_prompt=user_prompt,
-        api_key=api_key,
-        provider=provider,
-        base_url=base_url,
-        model=model
-    )
-    
-    # Strip markdown if any
-    clean_text = response_text.strip()
-    if clean_text.startswith("```json"):
-        clean_text = clean_text[7:]
-    if clean_text.endswith("```"):
-        clean_text = clean_text[:-3]
-    clean_text = clean_text.strip()
-    
-    diag_data = json.loads(clean_text)
-    
+
+    llm = get_llm(api_key, provider, base_url, model)
+    # JsonOutputParser strips markdown fences and parses JSON automatically
+    chain = _DIAGNOSE_PROMPT | llm | JsonOutputParser()
+
+    diag_data = chain.invoke({
+        "flow_name": flow.flow_name,
+        "steps": json.dumps([step.dict() for step in flow.steps], indent=2),
+        "script": script_content,
+        "error": json.dumps(run.error.dict() if run.error else {}, indent=2),
+        "logs": log_content,
+        "dom": dom_content,
+    })
+
     return DiagnosisReport(
         diagnosis_id=str(uuid.uuid4()),
         run_id=run.run_id,
@@ -123,5 +114,5 @@ def diagnose_run(
         affected_selector=diag_data.get("affected_selector"),
         suggested_alternatives=diag_data.get("suggested_alternatives", []),
         repair_eligible=diag_data.get("repair_eligible", False),
-        explanation=diag_data.get("explanation", "Unknown error")
+        explanation=diag_data.get("explanation", "Unknown error"),
     )

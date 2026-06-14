@@ -1,16 +1,13 @@
-import os
 import json
 import textwrap
 from typing import Optional
-from core.schema import FlowSchema
-from core.llm import call_llm
 
-# The LLM only generates the step statements (the body of the try block). The
-# surrounding harness — imports, overlay-resistant helpers, browser setup,
-# error reporting, exit codes — is fixed and assembled deterministically here.
-# This removes a whole class of failures (missing harness, undefined `page`,
-# broken error reporting) that occur when the model is asked to reproduce a
-# full script.
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+from core.schema import FlowSchema
+from core.llm import get_llm
+
 SYSTEM_PROMPT = """
 You are the Script Generator Agent. Given a FlowSchema, output ONLY the Python statements
 that perform the steps. These statements are inserted into an existing function where the
@@ -54,15 +51,12 @@ Rules:
 - Output ONLY the statements. No markdown fences, no prose, no surrounding function.
 """
 
-# Fixed harness. `{steps}` is replaced with the (re-indented) LLM step body.
 HARNESS_TEMPLATE = '''import argparse
 import json
 import sys
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
 
-# Best-effort dismissal of common consent / cookie / popup overlays that
-# intercept pointer events and block clicks (Amazon, OneTrust, generic modals).
 OVERLAY_DISMISS_SELECTORS = [
     "#sp-cc-accept",
     "input#sp-cc-accept",
@@ -76,9 +70,6 @@ OVERLAY_DISMISS_SELECTORS = [
     ".modal-close, .close-button, .icon-close",
 ]
 
-
-# Short pause after every action so the next element has time to render before
-# the following step runs (handles UIs that update asynchronously after a click/fill).
 SETTLE_MS = 600
 
 
@@ -104,22 +95,16 @@ def dismiss_overlays(page):
 
 
 def navigate(page, url, timeout):
-    # Go to the page and wait for it to actually finish loading before any
-    # subsequent step acts, so actions never run against a half-loaded page.
     page.goto(url, timeout=timeout, wait_until="domcontentloaded")
     for state in ("load", "networkidle"):
         try:
             page.wait_for_load_state(state, timeout=timeout)
         except Exception:
-            # networkidle can legitimately never settle on busy pages; the
-            # domcontentloaded/load above is enough to proceed safely.
             pass
     settle(page)
 
 
 def safe_fill(page, selector, value, timeout):
-    # Wait for the field to be present/visible before filling, so we don't act
-    # before the element has rendered.
     page.wait_for_selector(selector, timeout=timeout, state="visible")
     page.fill(selector, value, timeout=timeout)
     settle(page)
@@ -150,8 +135,6 @@ def safe_hover(page, selector, timeout):
 
 
 def safe_press(page, selector, key, timeout):
-    # Focus the field, then send the key via the keyboard. This avoids the
-    # element-stability wait that can time out on inputs with live typeahead.
     try:
         page.focus(selector, timeout=timeout)
     except Exception:
@@ -179,8 +162,6 @@ def main():
                 "--disable-dev-shm-usage",
             ],
         )
-        # A realistic context reduces bot-detection interstitials (captchas /
-        # "Continue shopping" pages) that hide the real DOM in headless mode.
         context = browser.new_context(
             user_agent=(
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -189,7 +170,6 @@ def main():
             viewport={"width": 1366, "height": 900},
             locale="en-US",
         )
-        # Mask the most common automation tell (navigator.webdriver === true).
         context.add_init_script(
             "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
         )
@@ -197,7 +177,6 @@ def main():
         try:
 __STEPS_PLACEHOLDER__
 
-            # On success, capture artifacts and exit cleanly.
             if args.screenshot:
                 page.screenshot(path=args.screenshot, full_page=True)
             if args.snapshot:
@@ -230,8 +209,17 @@ if __name__ == "__main__":
     main()
 '''
 
-# Indentation of the step body inside the harness `try:` block (def -> with -> try).
 STEP_INDENT = " " * 12
+
+_GENERATE_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", SYSTEM_PROMPT),
+    ("human", (
+        "Generate the step statements for the following flow:\n\n"
+        "Flow ID: {flow_id}\n"
+        "Flow Name: {flow_name}\n"
+        "Flow Steps:\n{steps}"
+    )),
+])
 
 
 def _strip_fences(text: str) -> str:
@@ -247,43 +235,35 @@ def _strip_fences(text: str) -> str:
 
 def assemble_script(step_body: str) -> str:
     """Wrap the LLM-produced step statements in the fixed harness with correct indentation."""
-    # Normalize any accidental common indentation from the model, then re-indent
-    # every non-blank line to sit inside the try block.
     body = textwrap.dedent(step_body).strip("\n")
     indented = "\n".join(
         (STEP_INDENT + line) if line.strip() else ""
         for line in body.splitlines()
     )
     script = HARNESS_TEMPLATE.replace("__STEPS_PLACEHOLDER__", indented)
-
-    # Fail loudly if the model emitted statements that don't compile, rather than
-    # writing a script that crashes only at run time.
     try:
         compile(script, "<generated_script>", "exec")
     except SyntaxError as e:
         raise ValueError(f"Generated script has a syntax error at line {e.lineno}: {e.msg}") from e
-
     return script
 
 
-def generate_script(flow: FlowSchema, api_key: str, provider: str = "openai", base_url: Optional[str] = None, model: Optional[str] = None) -> str:
-    user_prompt = f"""
-    Generate the step statements for the following flow:
+def generate_script(
+    flow: FlowSchema,
+    api_key: str,
+    provider: str = "openai",
+    base_url: Optional[str] = None,
+    model: Optional[str] = None,
+) -> str:
+    """Generate a Playwright script for the given flow using a LangChain chain."""
+    llm = get_llm(api_key, provider, base_url, model)
+    chain = _GENERATE_PROMPT | llm | StrOutputParser()
 
-    Flow ID: {flow.flow_id}
-    Flow Name: {flow.flow_name}
-    Flow Steps:
-    {json.dumps([step.dict() for step in flow.steps], indent=2)}
-    """
-
-    step_body = call_llm(
-        system_prompt=SYSTEM_PROMPT,
-        user_prompt=user_prompt,
-        api_key=api_key,
-        provider=provider,
-        base_url=base_url,
-        model=model
-    )
+    step_body = chain.invoke({
+        "flow_id": flow.flow_id,
+        "flow_name": flow.flow_name,
+        "steps": json.dumps([step.dict() for step in flow.steps], indent=2),
+    })
 
     step_body = _strip_fences(step_body)
     return assemble_script(step_body)

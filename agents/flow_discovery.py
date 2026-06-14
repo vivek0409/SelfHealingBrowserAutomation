@@ -1,24 +1,19 @@
 import uuid
+import json
 from datetime import datetime
 from typing import List, Optional
 from urllib.parse import urljoin
-import json
-from playwright.sync_api import sync_playwright
-from core.schema import FlowSchema, FlowStep
-from core.llm import call_llm
 
-# Maximum number of actions to discover, and retries per step when the chosen
-# selector does not resolve on the live page.
+from playwright.sync_api import sync_playwright
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+from core.schema import FlowSchema, FlowStep
+from core.llm import get_llm
+
 MAX_STEPS = 14
 MAX_RETRIES = 3
 
-# Discovery is AGENTIC and LIVE: we drive a real browser, and after every action
-# we re-read the CURRENT page's DOM and ask the LLM for the SINGLE next action,
-# choosing from elements that actually exist right now. Every selector is validated
-# against the live page before it is recorded, and then executed to advance state.
-# This is what makes multi-page goals (search -> navigate -> click) work, because
-# later steps are resolved on the pages they actually run against — not guessed from
-# a single static snapshot of the start page.
 DECIDE_SYSTEM_PROMPT = """
 You are the Flow Discovery Agent driving a real web browser to accomplish a user's goal.
 You work ONE step at a time. Each turn you are given: the goal, the current page URL/title,
@@ -79,8 +74,6 @@ current page).
 _EXTRACT_JS = """
 () => {
     const q = (s) => "'" + String(s).replace(/'/g, "\\\\'") + "'";
-    // Compute a ready-to-use, stable Playwright selector for the element so the
-    // LLM does not have to construct one (where it tends to fabricate ids).
     const buildSelector = (node, tag) => {
         const id = node.getAttribute('id');
         if (id) { try { return '#' + CSS.escape(id); } catch (e) { return '#' + id; } }
@@ -92,14 +85,11 @@ _EXTRACT_JS = """
         if (aria) return tag + '[aria-label=' + q(aria) + ']';
         const ph = node.getAttribute('placeholder');
         if (ph) return tag + '[placeholder=' + q(ph) + ']';
-        // Form fields have no text content — :has-text() would never match them.
         const isField = (tag === 'input' || tag === 'select' || tag === 'textarea');
         if (!isField) {
             const txt = (node.innerText || '').trim();
             if (txt) return tag + ':has-text(' + q(txt.substring(0, 60)) + ')';
         }
-        // Positional fallback that always resolves to exactly this element
-        // (e.g. unlabeled checkboxes/inputs). nth-match is 1-indexed.
         const same = document.querySelectorAll(tag);
         const idx = Array.prototype.indexOf.call(same, node);
         if (idx >= 0) return ':nth-match(' + tag + ', ' + (idx + 1) + ')';
@@ -150,6 +140,20 @@ OVERLAY_DISMISS_SELECTORS = [
     "[aria-label='Close']", "[aria-label='close']", "button[title='Close']",
 ]
 
+# LangChain prompt template for the discovery decision
+_DECIDE_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", DECIDE_SYSTEM_PROMPT),
+    ("human", (
+        "Goal: {goal}\n\n"
+        "Current page URL: {url}\n"
+        "Current page title: {title}\n\n"
+        "Steps completed so far ({n_steps}):\n{completed}\n\n"
+        "Elements currently on this page:\n{elements}\n"
+        "{feedback_line}\n\n"
+        "Decide the single next action (or set done=true if the goal is complete)."
+    )),
+])
+
 
 def _extract_from_page(page) -> List[dict]:
     try:
@@ -157,11 +161,7 @@ def _extract_from_page(page) -> List[dict]:
     except Exception as e:
         print(f"Error extracting DOM elements: {e}")
         return []
-    # Drop empty fields to keep the prompt compact and focused.
-    cleaned = []
-    for el in elements:
-        cleaned.append({k: v for k, v in el.items() if v})
-    return cleaned
+    return [{k: v for k, v in el.items() if v} for el in elements]
 
 
 def _settle(page, timeout: int = 8000):
@@ -196,13 +196,11 @@ def _selector_resolves(page, selector: str) -> bool:
 
 
 def _execute(page, action: str, selector: Optional[str], value: Optional[str], timeout: int):
-    """Perform the action on the live page to advance state for the next decision."""
     if action == "navigate":
         page.goto(value, wait_until="domcontentloaded", timeout=max(timeout, 30000))
         _settle(page)
         return
     if action == "assert":
-        # Validation already confirmed the selector resolves; nothing to execute.
         return
 
     loc = page.locator(selector).first
@@ -224,9 +222,6 @@ def _execute(page, action: str, selector: Optional[str], value: Optional[str], t
     elif action == "hover":
         loc.hover(timeout=timeout)
     elif action == "press":
-        # Focus then send the key via the keyboard. locator.press() waits for the
-        # element to be "stable", which can time out on inputs whose typeahead is
-        # re-rendering; focus + keyboard avoids that.
         try:
             page.focus(selector, timeout=timeout)
         except Exception:
@@ -244,7 +239,6 @@ def _parse_decision(text: str) -> dict:
     if t.endswith("```"):
         t = t[:-3]
     t = t.strip()
-    # Be lenient: grab the outermost JSON object if there is surrounding prose.
     if not t.startswith("{"):
         start, end = t.find("{"), t.rfind("}")
         if start != -1 and end != -1:
@@ -253,34 +247,33 @@ def _parse_decision(text: str) -> dict:
 
 
 def _decide_next(goal, page, completed, feedback, api_key, provider, base_url, model) -> dict:
+    """Use a LangChain chain to decide the next browser action."""
     elements = _extract_from_page(page)
-    user_prompt = f"""
-Goal: {goal}
 
-Current page URL: {page.url}
-Current page title: {page.title()}
+    llm = get_llm(api_key, provider, base_url, model)
+    chain = _DECIDE_PROMPT | llm | StrOutputParser()
 
-Steps completed so far ({len(completed)}):
-{json.dumps(completed, indent=2) if completed else "(none yet)"}
+    response = chain.invoke({
+        "goal": goal,
+        "url": page.url,
+        "title": page.title(),
+        "n_steps": len(completed),
+        "completed": json.dumps(completed, indent=2) if completed else "(none yet)",
+        "elements": json.dumps(elements, indent=2),
+        "feedback_line": f"IMPORTANT FEEDBACK: {feedback}" if feedback else "",
+    })
 
-Elements currently on this page:
-{json.dumps(elements, indent=2)}
-{("IMPORTANT FEEDBACK: " + feedback) if feedback else ""}
-
-Decide the single next action (or set done=true if the goal is complete).
-"""
-    response = call_llm(
-        system_prompt=DECIDE_SYSTEM_PROMPT,
-        user_prompt=user_prompt,
-        api_key=api_key,
-        provider=provider,
-        base_url=base_url,
-        model=model,
-    )
     return _parse_decision(response)
 
 
-def discover_flow(url: str, goal: str, api_key: str, provider: str = "openai", base_url: Optional[str] = None, model: Optional[str] = None) -> FlowSchema:
+def discover_flow(
+    url: str,
+    goal: str,
+    api_key: str,
+    provider: str = "openai",
+    base_url: Optional[str] = None,
+    model: Optional[str] = None,
+) -> FlowSchema:
     steps: List[FlowStep] = []
     completed_summaries: List[dict] = []
     flow_name = "Discovered Flow"
@@ -300,7 +293,6 @@ def discover_flow(url: str, goal: str, api_key: str, provider: str = "openai", b
         )
         page = context.new_page()
         try:
-            # Step 1 is always the initial navigation to the start URL.
             page.goto(url, wait_until="domcontentloaded", timeout=30000)
             _settle(page)
             steps.append(FlowStep(
@@ -309,9 +301,6 @@ def discover_flow(url: str, goal: str, api_key: str, provider: str = "openai", b
             ))
             completed_summaries.append({"action": "navigate", "value": url, "description": f"Navigate to {url}"})
 
-            # A single bad LLM pick must NOT abandon the whole flow. We allow a budget
-            # of CONSECUTIVE recoverable failures (re-ask with feedback) that resets after
-            # each successful step, so a long flow is not killed by occasional retries.
             feedback = None
             fails = 0
             iterations = 0
@@ -336,14 +325,11 @@ def discover_flow(url: str, goal: str, api_key: str, provider: str = "openai", b
                 strategy = decision.get("selector_strategy") or ("css" if selector else None)
                 description = decision.get("description") or f"{action} {selector or value or ''}".strip()
 
-                # Resolve a relative navigate URL against the current page.
                 if action == "navigate" and value and not value.startswith(("http://", "https://")):
                     value = urljoin(page.url, value)
 
                 print(f"Discovery decision @ {page.url} -> action={action!r} selector={selector!r} value={value!r} :: {description}")
 
-                # navigate (uses a URL) and assert (may check URL/text) don't require a
-                # selector; every other action must resolve against a real current element.
                 needs_selector = action not in ("navigate", "assert")
                 if needs_selector and not _selector_resolves(page, selector):
                     fails += 1
@@ -382,7 +368,7 @@ def discover_flow(url: str, goal: str, api_key: str, provider: str = "openai", b
                 completed_summaries.append({
                     "action": action, "selector": selector, "value": value, "description": description,
                 })
-                fails = 0  # reset the consecutive-failure budget after a successful step
+                fails = 0
         finally:
             browser.close()
 

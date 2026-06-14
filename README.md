@@ -1,8 +1,8 @@
 # 🪄 AutoFlow AI — Self‑Healing Browser Automation Agent
 
-AutoFlow AI turns a plain‑English goal into a **runnable browser‑automation script**, executes it, and **automatically diagnoses and repairs failures** when selectors break or pages change. It pairs a multi‑agent LLM pipeline with Playwright and a clean web dashboard.
+AutoFlow AI turns a plain‑English goal into a **runnable browser‑automation script**, executes it, and **automatically diagnoses and repairs failures** when selectors break or pages change. It pairs a multi‑agent LLM pipeline with a LangGraph state machine, Playwright, and a clean web dashboard.
 
-> Example: type *“Search OpenAI, go to Corporate structure, click the holding‑company link”* → AutoFlow drives a real browser, discovers each step on the live page, generates a Playwright script, runs it, records screenshots/logs, and self‑heals if anything fails.
+> Example: type *"Search OpenAI, go to Corporate structure, click the holding‑company link"* → AutoFlow drives a real browser, discovers each step on the live page, generates a Playwright script, runs it, records screenshots/logs, and self‑heals if anything fails — including re‑discovering the entire flow when the site removes an element permanently.
 
 ---
 
@@ -16,11 +16,14 @@ AutoFlow AI turns a plain‑English goal into a **runnable browser‑automation 
 
 ## ✨ Features
 
-- **Agentic, live flow discovery** — drives a real browser and decides each step against the *current* page’s DOM, so multi‑page journeys (search → navigate → click, login, checkout, menus, toggles) work reliably. Every selector is validated on the live page before it’s recorded.
+- **Agentic, live flow discovery** — drives a real browser and decides each step against the *current* page's DOM, so multi‑page journeys (search → navigate → click, login, checkout, menus, toggles) work reliably. Every selector is validated on the live page before it's recorded.
 - **Deterministic script generation** — the executable Playwright harness (imports, browser setup, error reporting, overlay‑resistant clicks, load‑waiting) is fixed code; the LLM only fills in the steps. No more half‑broken scripts.
-- **Self‑healing execution** — on failure it diagnoses the root cause (broken selector, timeout, overlay interception, …) and patches the script, then re‑runs.
-- **Visual regression** — promote a run’s screenshot to a baseline and get a pixel‑diff overlay against future runs.
-- **Bring‑your‑own LLM** — works with any OpenAI‑compatible endpoint (OpenAI, OpenRouter, local Ollama/vLLM). API keys live only in your browser’s local storage.
+- **Two‑mode self‑healing** — on failure the Error Diagnosis agent distinguishes between two root causes and routes accordingly:
+  - **Redesign** — the element exists but the selector changed (CSS class renamed, id restructured). The repair agent swaps the selector and re‑runs.
+  - **Element removed** — the element and its functionality are completely gone from the page. The orchestrator triggers a full **re‑discovery** of the flow against the updated site, saves the new flow, generates a fresh script, and re‑runs.
+- **LangGraph orchestration** — the end‑to‑end pipeline is a compiled LangGraph state machine with deterministic routing and loop‑protection.
+- **Visual regression** — promote a run's screenshot to a baseline and get a pixel‑diff overlay against future runs.
+- **Bring‑your‑own LLM** — works with any OpenAI‑compatible endpoint (OpenAI, OpenRouter, local Ollama/vLLM). API keys live only in your browser's local storage.
 - **Polished dashboard** — discover, edit scripts, run (headed or headless), inspect logs/screenshots, and view healing diagnostics.
 
 ---
@@ -29,26 +32,54 @@ AutoFlow AI turns a plain‑English goal into a **runnable browser‑automation 
 
 | Agent | File | Responsibility |
 |---|---|---|
-| **Flow Discovery** | `agents/flow_discovery.py` | Drives a live browser and, step‑by‑step, picks the next real element to satisfy the goal. Produces a validated `FlowSchema`. |
+| **Flow Discovery** | `agents/flow_discovery.py` | Drives a live browser and, step‑by‑step, picks the next real element to satisfy the goal. Produces a validated `FlowSchema`. Also invoked automatically by the orchestrator when an element is removed from the site. |
 | **Script Generator** | `agents/script_generator.py` | Wraps the LLM‑produced step statements in a fixed, overlay‑resistant Playwright harness. |
 | **Execution Agent** | `agents/execution_agent.py` | Runs the generated script as a subprocess, captures screenshots/DOM snapshots/logs, and reports pass/fail. |
-| **Error Diagnosis** | `agents/error_diagnosis.py` | Analyzes a failed run (log + DOM snapshot) and classifies the error with repair suggestions. |
-| **Adaptive Repair** | `agents/adaptive_repair.py` | Patches the script based on the diagnosis (e.g. swap selector, dismiss overlay, force click). |
+| **Error Diagnosis** | `agents/error_diagnosis.py` | Analyzes a failed run (log + DOM snapshot) and classifies the error type, root cause (`redesign` vs `element_removed`), affected selector, and repair suggestions. |
+| **Adaptive Repair** | `agents/adaptive_repair.py` | Patches the script based on the diagnosis (e.g. swap selector, dismiss overlay, force click). Used for `redesign` failures. |
 | **Regression Monitor** | `agents/regression_monitor.py` | Compares a run screenshot against a baseline and renders a highlighted diff. |
 
-The **Orchestrator** (`core/orchestrator.py`) ties them together: *generate → run → (on fail) diagnose → repair → re‑run* up to N attempts, then optional visual diff.
+---
+
+## 🔄 Orchestration Flow
+
+The **Orchestrator** (`core/orchestrator.py`) is a compiled **LangGraph** state machine. Each node is a discrete agent call; edges encode the self‑healing logic:
+
+```
+prepare ──► execute
+               │
+         pass? └──► visual_diff ──► END
+               │
+         fail? └──► diagnose
+                        │
+              redesign? └──► repair ──► execute  (loops up to max_repair_attempts)
+                        │
+       element_removed? └──► rediscover ──► execute
+                        │
+          not eligible? └──► visual_diff ──► END
+```
+
+- **prepare** — loads the flow from the DB; uses a cached script if one exists, otherwise generates it.
+- **execute** — runs the script subprocess and saves the `RunReport`.
+- **diagnose** — calls the Error Diagnosis agent; classifies `root_cause` and `repair_eligible`.
+- **repair** — patches the script for `redesign` failures (selector swap / overlay dismissal).
+- **rediscover** — re‑runs `flow_discovery` with the same URL and goal when an element is permanently removed, saves the new `FlowSchema`, generates a fresh script, resets the attempt counter, and then re‑executes. Runs at most once per orchestration to prevent infinite loops.
+- **visual_diff** — pixel‑diffs the run screenshot against the stored baseline (if any).
 
 ---
 
 ## 🧱 Tech Stack
 
-- **Language:** Python 3.10+ (tested on 3.13)
-- **Web/API:** FastAPI + Uvicorn
-- **Browser automation:** Playwright (Chromium)
-- **AI layer:** any OpenAI‑compatible Chat Completions API (OpenAI / OpenRouter / local)
-- **Storage:** SQLite (auto‑created `db.sqlite`)
-- **Visual diff:** Pillow
-- **Frontend:** vanilla HTML/CSS/JS (no build step)
+| Layer | Technology |
+|---|---|
+| Language | Python 3.10+ (tested on 3.13) |
+| Web / API | FastAPI + Uvicorn |
+| Browser automation | Playwright (Chromium) |
+| Agent orchestration | LangGraph |
+| LLM client | Direct OpenAI‑compatible HTTP (`core/llm.py` via `httpx`) |
+| Storage | SQLite (auto‑created `db.sqlite`) |
+| Visual diff | Pillow |
+| Frontend | Vanilla HTML/CSS/JS (no build step) |
 
 ---
 
@@ -62,7 +93,7 @@ The **Orchestrator** (`core/orchestrator.py`) ties them together: *generate → 
 ### 2. Get the code
 ```bash
 git clone <your-repo-url>
-cd AI_Browser_Automation_Agent
+cd SelfHealingBrowserAutomation
 ```
 
 ### 3. Create a virtual environment (recommended)
@@ -77,7 +108,7 @@ source .venv/bin/activate        # macOS/Linux
 pip install -r requirements.txt
 python -m playwright install chromium
 ```
-> `python -m playwright install chromium` downloads the browser Playwright drives. It’s required — `pip install` alone is not enough.
+> `python -m playwright install chromium` downloads the browser Playwright drives. It's required — `pip install` alone is not enough.
 
 ### 5. Run the app
 ```bash
@@ -88,7 +119,7 @@ Open **http://127.0.0.1:8000** in your browser.
 ### 6. Configure your API key (in the UI)
 Click **API Settings** (top‑right) and enter:
 - **Provider:** OpenAI or OpenRouter
-- **API Key:** your key (stored only in your browser’s local storage)
+- **API Key:** your key (stored only in your browser's local storage)
 - **Model (optional):** e.g. `gpt-4o`, `anthropic/claude-3.5-sonnet`, `meta-llama/llama-3.1-70b-instruct`
 
 > 💡 An OpenRouter key (`sk-or-…`) is auto‑routed to OpenRouter even if the provider dropdown says OpenAI.
@@ -101,7 +132,7 @@ Click **API Settings** (top‑right) and enter:
 2. **Review steps** — the middle panel shows each discovered step with its real selector.
 3. **Generated Script** — open this tab to generate (or view) the runnable Playwright script. Use **Regenerate** to rebuild it, **Save Changes** to persist manual edits.
 4. **Run Automation** — executes the script. Leave **Headless** unchecked to watch a real browser window (recommended; many sites block headless).
-5. **Self‑heal** — if a run fails, **Fix Script & Run** lights up: it diagnoses, patches, and re‑runs automatically.
+5. **Self‑heal** — if a run fails, **Fix Script & Run** lights up: it diagnoses whether the selector changed (repair) or the element was removed from the site (re‑discovery + regenerate + re‑run), all automatically.
 6. **Inspect** — the right panel shows run history, logs, DOM snapshots, and (if a baseline is set) the visual diff.
 7. **Visual regression** — on a passing run, click **Set as Baseline**; future runs show a **View Visual Diff**.
 
@@ -143,24 +174,24 @@ curl -X POST http://127.0.0.1:8000/api/runs \
 ## 🗂️ Project Structure
 
 ```
-AI_Browser_Automation_Agent/
+SelfHealingBrowserAutomation/
 ├── agents/
-│   ├── flow_discovery.py        # Agentic live flow discovery
+│   ├── flow_discovery.py        # Agentic live flow discovery (also used for re-discovery)
 │   ├── script_generator.py      # Deterministic Playwright harness + LLM steps
 │   ├── execution_agent.py       # Runs scripts, captures artifacts
-│   ├── error_diagnosis.py       # Classifies failures
-│   ├── adaptive_repair.py       # Patches broken scripts
+│   ├── error_diagnosis.py       # Classifies failures + root cause (redesign / element_removed)
+│   ├── adaptive_repair.py       # Patches broken scripts (selector swap, overlay dismissal)
 │   └── regression_monitor.py    # Pixel-diff visual regression
 ├── api/
 │   ├── main.py                  # FastAPI entrypoint (serves API + dashboard)
 │   └── routes/                  # flows.py, runs.py, regression.py
 ├── core/
-│   ├── orchestrator.py          # End-to-end self-healing workflow
-│   ├── schema.py                # Pydantic models (FlowSchema, RunReport, …)
+│   ├── orchestrator.py          # LangGraph state machine: prepare→execute→diagnose→repair/rediscover→visual_diff
+│   ├── schema.py                # Pydantic models (FlowSchema, RunReport, DiagnosisReport, …)
 │   ├── storage.py               # SQLite persistence
-│   └── llm.py                   # OpenAI-compatible LLM client + provider/model routing
+│   └── llm.py                   # Direct OpenAI-compatible HTTP client + provider/model routing
 ├── static/                      # index.html, style.css, app.js (dashboard)
-├── scripts/generated/           # Generated Playwright scripts (per flow)
+├── scripts/generated/           # Generated Playwright scripts (per flow, auto-created)
 ├── artifacts/                   # Run screenshots, DOM snapshots, logs, diffs (auto-created)
 ├── tests/test_agents.py         # Unit tests
 ├── requirements.txt
@@ -176,6 +207,7 @@ AI_Browser_Automation_Agent/
 - **Default model** per provider lives in `core/llm.py` (`DEFAULT_MODELS`). Override per request via the **Model** field / `X-API-Model` header, or globally via the `LLM_MODEL` environment variable.
 - **Server port** is `8000` (`api/main.py`). Change it there if needed.
 - **Headed vs headless:** the **Headless** checkbox in the UI controls each run. Headed (default) matches running the script manually and is far less likely to be blocked.
+- **Max repair attempts:** controls how many selector‑repair cycles the orchestrator tries before escalating. Re‑discovery counts separately and runs at most once per execution.
 
 ---
 
@@ -192,19 +224,21 @@ python -m unittest tests/test_agents.py
 | Symptom | Cause / Fix |
 |---|---|
 | `ModuleNotFoundError: No module named 'playwright'` | Run `pip install -r requirements.txt` **and** `python -m playwright install chromium` inside your active venv. |
-| `Authentication failed (401)` | Key doesn’t match the provider. OpenAI keys = `sk-…`; OpenRouter keys = `sk-or-…`. Check the key has credits. |
-| Run fails on a real site with a “Continue shopping” / CAPTCHA page | The site is blocking automation (e.g. Amazon). Run **headed** (uncheck Headless); for clean demos use friendly sites like `saucedemo.com`, `books.toscrape.com`, `the-internet.herokuapp.com`. |
-| A selector times out | Click **Fix Script & Run** — the self‑healing loop diagnoses and patches it. Or **Regenerate** / re‑discover the flow. |
-| Discovery stops early on a long journey | Make sure the **Starting URL** is where the journey begins; very long flows cap at `MAX_STEPS` in `flow_discovery.py`. |
+| `Authentication failed (401)` | Key doesn't match the provider. OpenAI keys = `sk-…`; OpenRouter keys = `sk-or-…`. Check the key has credits. |
+| Run fails on a real site with a "Continue shopping" / CAPTCHA page | The site is blocking automation (e.g. Amazon). Run **headed** (uncheck Headless); for clean demos use friendly sites like `saucedemo.com`, `books.toscrape.com`, `the-internet.herokuapp.com`. |
+| A selector times out or can't be found | Click **Fix Script & Run** — the orchestrator diagnoses whether it's a broken selector (repairs it) or a removed element (re‑discovers the flow and regenerates the script). |
+| Discovery stops early or ignores the goal | Make sure the **Goal** clearly describes the end‑to‑end journey. Very long flows are capped at `MAX_STEPS` in `flow_discovery.py`. |
+| Re‑discovery runs but new script still fails | The site's updated design may require a different starting URL or a more specific goal. Re‑discover manually with the updated URL. |
 | Port 8000 already in use | Change the port in `api/main.py`. |
 
 ---
 
 ## ⚠️ Known Limitations
 
-- Elements inside **iframes** and links that open in a **new browser tab** aren’t followed.
+- Elements inside **iframes** and links that open in a **new browser tab** aren't followed.
 - Pure `<div>` click handlers with no `role`/`onclick`/`tabindex` may not be detected as interactive.
-- Discovery makes several LLM calls (one per step + retries) — it’s a one‑time cost per flow.
+- Discovery and re‑discovery each make several LLM calls (one per step + retries) — this is a one‑time cost per flow.
+- Re‑discovery preserves the original `flow_id` so run history stays linked, but old steps are replaced entirely.
 - Heavily bot‑protected sites (e.g. Amazon) may block automation regardless of stealth settings.
 
 ---
@@ -219,10 +253,10 @@ Contributions are welcome!
 4. Keep the style consistent with the surrounding code; prefer small, focused commits.
 5. Open a Pull Request describing the change and how you tested it.
 
-Good first areas: broader element extraction (iframes, new‑tab links), more diagnosis/repair heuristics, and additional regression tooling.
+Good first areas: broader element extraction (iframes, new‑tab links), more diagnosis/repair heuristics, step‑level re‑discovery (instead of full flow re‑discovery), and additional regression tooling.
 
 ---
 
 ## 📄 License
 
-Released under the **MIT License** — see [`LICENSE`](LICENSE). Use for educational and **authorized** testing only; do not automate sites you don’t have permission to test.
+Released under the **MIT License** — see [`LICENSE`](LICENSE). Use for educational and **authorized** testing only; do not automate sites you don't have permission to test.
